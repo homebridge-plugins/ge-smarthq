@@ -1,0 +1,49 @@
+# Source code
+src/
+tsconfig.json
+
+# Development files
+.eslintrc
+.gitignore
+.github/
+.env.example
+nodemon.json
+
+# Tests
+test/
+tests/
+*.test.ts
+*.spec.ts
+vitest.config.ts
+coverage/
+
+# Build artifacts
+*.tsbuildinfo
+
+# Documentation
+docs/
+typedoc.json
+
+# Configuration
+config.sample.json
+config.schema.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Package manager
+package-lock.json
+yarn.lock
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Misc
+README.md
+LICENSE
+CHANGELOG.md
