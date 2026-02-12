@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.1](https://github.com/homebridge-plugins/ge-smarthq/releases/tag/v1.0.1) (2026-02-12)
+
+## What's Changed
+* No notable changes
+
+**Full Changelog**: https://github.com/homebridge-plugins/ge-smarthq/compare/...v1.0.1
+
 ## [1.0.0](https://github.com/homebridge-plugins/ge-smarthq/releases/tag/v1.0.0) (2026-02-11)
 
 ## What's Changed

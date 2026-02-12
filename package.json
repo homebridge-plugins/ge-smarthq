@@ -1,6 +1,6 @@
 {
   "name": "ge-smarthq",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "description": "GE SmartHQ appliances module",
   "main": "dist/index.js",
