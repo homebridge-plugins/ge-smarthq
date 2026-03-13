@@ -29,7 +29,7 @@ yarn add ge-smarthq
 - Node.js 20.x, 22.x, or 24.x
 - npm or yarn package manager
 - GE SmartHQ account with OAuth2 credentials (optional - defaults are provided)
-
+<!--
 ## Environment Variables
 
 By default, this library uses public OAuth2 credentials for the GE SmartHQ API. You can override these by setting environment variables (useful for custom or restricted API access):
@@ -41,7 +41,7 @@ SMARTHQ_OAUTH2_CLIENT_SECRET=your_client_secret_here
 ```
 
 **Important**: Never commit `.env` files to version control. Use `.env.local` or similar for local development. See [.env.example](.env.example) for the template.
-
+-->
 ## Quick Start
 
 ### Basic Usage
@@ -50,13 +50,13 @@ SMARTHQ_OAUTH2_CLIENT_SECRET=your_client_secret_here
 import { SmartHQClient } from 'ge-smarthq';
 
 // Create client instance
-const client = new SmartHQClient({
-  username: 'your-email@example.com',
-  password: 'your-password',
-  region: 'US', // or 'EU'
-  debug: false,
-});
-
+this.client = new SmartHQClient(
+      {
+      clientId:     'your-client-id',
+      clientSecret: 'your-client-secret',
+      redirectUri:  'your-redirect-uri',
+      debug:        false,
+    });
 // Authenticate
 await client.authenticate();
 
@@ -76,18 +76,19 @@ client.on('service_update', (message) => {
 await client.disconnect();
 ```
 
-### Sending Commands
+### Sending Command
 
 ```typescript
-await client.sendCommands({
-  kind: 'appliance#command-request',
-  commands: [
-    {
-      kind: 'appliance#command',
-      deviceId: 'your-device-id',
-      action: 'start',
-    },
-  ],
+await client.sendCommand({
+  kind: 'service#command',
+  deviceId:           'your-deviceId',
+  serviceDeviceType:  'your-service-device-type',
+  serviceType:        'your-service-type',
+  domainType:         'your-domain-type'
+  command: {
+    commandType: 'your-command-type',
+    value:        value 
+  },
 });
 ```
 
@@ -119,18 +120,22 @@ console.log('Online:', presence.presence?.online);
 
 ```typescript
 interface SmartHQConfig {
-  username: string;        // GE account email
-  password: string;        // GE account password
-  region?: 'US' | 'EU';    // Region (default: 'US')
+  clientId: string;        // SmartHQ account client Id
+  clientSecret: string;    // SmartHQ account client Secret
+  redirectUri:  string;    // redirectURI for SmartHQ API
   debug?: boolean;         // Enable debug logging (default: false)
 }
 ```
+- To obtain a client Id and clientSecret follow the steps at [Get Started - SmartHQ Docs](https://docs.smarthq.com/get-started/)  
+- The authenticate() function will start a localhost server which is used for the redirectUri.  Example: http://localhost:8888/callback
 
 ### Client Methods
 
 #### Authentication
 
 - **`authenticate(): Promise<void>`** - Log in and obtain OAuth2 credentials
+
+
 
 #### Device Management
 
@@ -146,6 +151,7 @@ interface SmartHQConfig {
 
 #### Commands
 
+- **`sendCommand(request: SendCommandRequest): Promise<SendCommandSuccessResponse>`** - Execute command for single device
 - **`sendCommands(request: SendCommandsRequest): Promise<SendCommandsSuccessResponse>`** - Execute commands
 
 #### Alerts & Presence
@@ -224,15 +230,16 @@ client.on('error', (error: Error) => {
 
 ## Advanced Usage
 
-### Custom Region and Debug Logging
+### Debug Logging
 
 ```typescript
-const client = new SmartHQClient({
-  username: 'user@example.com',
-  password: 'password',
-  region: 'EU',
-  debug: true, // Enable debug output
-});
+const client = new SmartHQClient(
+      {
+      clientId:     '1234567898765432',
+      clientSecret: '1ju739ff93l0c873kaj92',
+      redirectUri:  'http://localhost:8888/callback',
+      debug:        true, // Enable debug output
+    });
 ```
 
 ### Error Handling
@@ -276,6 +283,54 @@ The API supports all GE SmartHQ-enabled appliances, including:
 
 To use this library in a Homebridge plugin:
 
+- Requires an account and setup documented in the steps at [Get Started - SmartHQ Docs](https://docs.smarthq.com/get-started/)  
+- A config.schema.json file that includes  clientId, clientSecret, redirectUri
+
+example config.schema.json ----
+```typescript
+{
+  "pluginAlias": "SmartHqPlatform",
+  "pluginType": "platform",
+  "singular": true,
+  "schema": {
+    "type": "object",
+    "required": ["clientId", "clientSecret", "redirectUri"],
+    "properties": {
+      "clientId": {
+        "type": "string",
+        "title": "SmartHQ Client ID",
+        "x-schema-form": {
+          "type": "password"
+        }
+      },
+      "clientSecret": {
+        "type": "string",
+        "title": "SmartHQ Client Secret",
+        "x-schema-form": {
+          "type": "password"
+        }
+      },
+      "redirectUri": {
+        "type": "string",
+        "format": "uri",
+        "title": "OAuth Redirect URI (must match the one defined  for SmartHQ app @ https://developer.smarthq.com/user/???/apps",
+        "default": "http://localhost:8888/callback"
+      },
+      "debugLogging": {
+        "type": "boolean",
+        "title": "Plugin Debug Logging",
+        "default": false
+      },
+    }
+```
+
+- To obtain the initial access token and refresh token requires additional steps. Once the tokens are saved these steps will only be required if the token store file is deleted or missing. 
+  - Monitor the Homebridge log for '[SmarthqClient] Click to login for SmartHQ Auth setup ===>: http://localhost:8888/login
+  - Click the url to redirect to SmartHQ authorization website.
+  - Login with your account username and password.
+  - An auth code is returned to the redirectUri which is used to acquire the access and refresh tokens.
+  - The localhost server to handle the redirect is started internally so no extra action is required
+
 ```typescript
 import { SmartHQClient } from 'ge-smarthq';
 
@@ -283,20 +338,31 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
   private client: SmartHQClient;
 
   constructor(log: Logger, config: PlatformConfig, api: API) {
-    this.client = new SmartHQClient({
-      username: config.username,
-      password: config.password,
-      region: config.region || 'US',
-      debug: config.debug || false,
+    this.client = new SmartHQClient(
+      {
+      clientId:     this.config.clientId,
+      clientSecret: this.config.clientSecret,
+      redirectUri:  this.config.redirectUri,
+      debug:        this.config.debugLogging || false,
     });
 
     this.api.on('didFinishLaunching', () => {
-      this.discoverDevices();
-    });
+      try {
+        await this.client.authenticate();
+      } catch (error) {
+          console.error('SmartHQ OAuth2 authentication failed:'), error);
+      }
+      // Listen for authComplete event to start device discovery
+      this.client.on('authenticated', async () => {
+        try {
+        await this.discoverDevices();
+        } catch (error) {
+          console.error('Error during device discovery:'), error);
+        }
+    };
   }
 
   async discoverDevices() {
-    await this.client.authenticate();
     const devices = await this.client.getDevices();
     // Create HomeKit accessories for each device
   }

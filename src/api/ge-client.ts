@@ -1,7 +1,15 @@
-import { EventEmitter } from 'node:events'
-import WebSocket from 'ws'
-import type { AxiosInstance } from 'axios'
-import axios from 'axios'
+import { EventEmitter }       from 'node:events'
+import WebSocket              from 'ws'
+import type { AxiosError, AxiosInstance, AxiosResponse } from 'axios'
+import axios                  from 'axios'
+import chalk                  from 'chalk'
+import fs                     from 'fs'
+import { writeFileSync, existsSync, readFileSync } from 'fs';
+import express                from 'express'
+import path                   from 'node:path'
+import { Server }             from 'http'
+import { stringify, parse }   from 'querystring';
+
 import type {
   AlertCountResponse,
   AlertMessage,
@@ -40,6 +48,8 @@ import type {
   SchemaListResponse,
   SchemaPolicyValidationResponse,
   SchemaResponse,
+  SendCommandRequest,
+  SendCommandSuccessResponse,
   SendCommandsRequest,
   SendCommandsSuccessResponse,
   ServiceDetailsResponse,
@@ -47,27 +57,19 @@ import type {
   ServiceMessage,
   SmartHQClientEventType,
   SmartHQConfig,
-  SmartHQCredentials,
   UpdateFavoriteOrderRequest,
   UpdateFavoriteOrderResponse,
   UpdateFavoriteRequest,
   UpdateFavoriteResponse,
   WebsocketEndpoint,
-} from '../types/index'
+} from '../types/index.js'
 
 // SmartHQ API v2 Constants
-const API_BASE_URL = 'https://client.mysmarthq.com'
-// eslint-disable-next-line node/prefer-global/process
-const OAUTH2_CLIENT_ID = process.env.SMARTHQ_OAUTH2_CLIENT_ID || '564c31616c4f7474434b307435412b4d2f6e7672'
-// eslint-disable-next-line node/prefer-global/process
-const OAUTH2_CLIENT_SECRET = process.env.SMARTHQ_OAUTH2_CLIENT_SECRET || '6476512b5246446d452f697154444941387052645938466e5671746e5847593d'
-const OAUTH2_REDIRECT_URI = 'brillion://oauth/redirect'
-const LOGIN_URL = 'https://accounts.brillion.geappliances.com'
+const API_BASE_URL =          'https://client.mysmarthq.com'
+const LOGIN_URL =             'https://accounts.brillion.geappliances.com'
+const TOKEN_STORE =           "smarthq.tokens.json"
+const PING_INTERVAL =         60000; // 60 seconds
 
-const LOGIN_REGIONS = {
-  US: 'us-east-1',
-  EU: 'eu-west-1',
-}
 
 /**
  * GE SmartHQ API Client
@@ -79,20 +81,26 @@ const LOGIN_REGIONS = {
  * - Alert and presence tracking
  */
 export class SmartHQClient extends EventEmitter {
-  private config: SmartHQConfig
-  private httpClient: AxiosInstance
-  private credentials: SmartHQCredentials | null = null
-  private websocket: WebSocket | null = null
-  private devices: Map<string, Device> = new Map()
+  private config:         SmartHQConfig
+  public httpClient:      AxiosInstance
+  public websocket:       WebSocket | null = null
+  private devices:        Map<string, Device> = new Map()
   private reconnectAttempts = 0
   private maxReconnectAttempts = 5
-  private pingInterval: ReturnType<typeof setInterval> | null = null
-  private pongTimeout: ReturnType<typeof setTimeout> | null = null
+  private pingInterval:   ReturnType<typeof setInterval> | null = null
+  private pongTimeout:    ReturnType<typeof setTimeout> | null = null
+  private tokenPath:      string = '';
+  private oauthServer?:   Server;
+  // Static properties to hold tokens and expiration time
+  static refresh_token:   string = '';
+  static access_token:    string = '';
+  static expires:         number = 0
 
-  constructor(config: SmartHQConfig) {
+  constructor(
+    config: SmartHQConfig,
+  ) {
     super()
     this.config = {
-      region: 'US',
       debug: false,
       ...config,
     }
@@ -101,89 +109,184 @@ export class SmartHQClient extends EventEmitter {
       baseURL: API_BASE_URL,
       timeout: 30000,
     })
+    
+    this.tokenPath = path.join(process.cwd(), TOKEN_STORE)
+
+    this.loadAccessToken();
+
+    chalk.level = 1; // Enable chalk colors 
   }
 
   /**
    * Authenticate with the SmartHQ API using OAuth2
    */
-  async authenticate(): Promise<void> {
-    try {
-      const tokenData = await this.getOAuth2Token()
-      this.credentials = {
-        access_token: tokenData.access_token,
-        token_type: tokenData.token_type || 'Bearer',
-        expires_in: tokenData.expires_in,
-        refresh_token: tokenData.refresh_token,
-        expires: Date.now() + ((tokenData.expires_in || 3600) * 1000),
-      }
+  async authenticate(): Promise<void> { 
+    const path: string = this.tokenPath;
+    this.debug(`Checking for existing token at: ${path}`);
 
-      this.httpClient.defaults.headers.common.Authorization = `Bearer ${this.credentials.access_token}`
+    if (!fs.existsSync(path)) {
+      try {
+          await this.getAuthToken();
+
+      } catch (error) {
+        const err = new Error(`Authentication error caught in authenticate(): ${error}`)
+        this.emit('error', err)
+        throw err
+      }
+    } else {
       this.emit('authenticated')
-      this.log('Authenticated successfully')
-    } catch (error) {
-      const err = new Error(`Authentication failed: ${error}`)
-      this.emit('error', err)
-      throw err
     }
+  } 
+
+   /**
+   * Refresh the access token using refresh_token
+   */
+  async refreshAccessToken() {
+    this.debug('Refreshing access token using staticrefresh_token')
+    return await this.getAccessToken({
+      grant_type:     'refresh_token',
+      client_id:      this.config.clientId,
+      client_secret:  this.config.clientSecret,
+      refresh_token:  SmartHQClient.refresh_token
+    });
   }
 
   /**
-   * Refresh the access token using refresh_token
+   * Perform OAuth2 authentication flow
    */
-  async refreshToken(): Promise<void> {
-    if (!this.credentials?.refresh_token) {
-      throw new Error('No refresh token available')
-    }
+  private async getAuthToken(): Promise<any> {
 
+    // Step 1: Redirect user to SmartHQ authorization endpoint to obtain authorization code
+
+    const app = express();
+    const url = new URL(`${this.config.redirectUri}`);
+    const pathname: string = url.pathname;      // e.g. '/callback'
+    const port: number = parseInt(url.port, 10);
+
+    const tstamp = new Date().toLocaleString('en-US')
+    console.log(chalk.blue(`[${tstamp}] [SmarthqClient] =======================================================================`));
+    console.log(chalk.blue(`[${tstamp}] [SmarthqClient] Click to login for SmartHQ Auth setup ===>:` + chalk.red("http://localhost:" + port + "/login")));
+    console.log(chalk.blue(`[${tstamp}] [SmarthqClient] =======================================================================`));
+    
+ 
+    app.get('/login', async (_req, res) => {
     try {
-      const response = await axios.post(`${LOGIN_URL}/oauth2/token`, {
-        refresh_token: this.credentials.refresh_token,
-        client_id: OAUTH2_CLIENT_ID,
-        client_secret: OAUTH2_CLIENT_SECRET,
-        grant_type: 'refresh_token',
-      }, {
-        auth: {
-          username: OAUTH2_CLIENT_ID,
-          password: OAUTH2_CLIENT_SECRET,
-        },
-      })
+      const url = `${LOGIN_URL}/oauth2/auth?` + stringify({
+        response_type:  'code',
+        client_id:      this.config.clientId || 'not_set',
+        redirect_uri:   `${this.config.redirectUri}`,
+      });
 
-      this.credentials = {
-        access_token: response.data.access_token,
-        token_type: response.data.token_type || 'Bearer',
-        expires_in: response.data.expires_in,
-        refresh_token: response.data.refresh_token || this.credentials.refresh_token,
-        expires: Date.now() + ((response.data.expires_in || 3600) * 1000),
+      res.redirect(url);     ///====> Redirect to SmartHQ authorization endpoint
+ 
+    } catch (error) {
+      console.error(chalk.blue(`[${tstamp}] [SmarthqClient] /login error: caught in getAuthToken`, error));
+      res.status(500).send('Authentication /login failed: ' + error);};
+    });
+
+  app.get(pathname, async (req, res) => {   // /callback route handler for SmartHQ OAuth redirect with authorization code
+    try {
+      // Parse the request URL
+      const query = parse(req.url!.split('?')[1]);
+
+      const code = query.code?.toString() || '';
+      if (!code) {
+        console.error(chalk.blue(`[${tstamp}] [SmarthqClient] No code found in callback URL for SmartHQ OAuth`));
       }
 
-      this.httpClient.defaults.headers.common.Authorization = `Bearer ${this.credentials.access_token}`
-      this.emit('token_refreshed')
-      this.log('Token refreshed successfully')
+    // Step 2: Exchange authorization code for access token
+
+      await this.exchangeCodeForToken(code);
+
+      res.send(`
+        <h2>SmartHQ Connected</h2>
+        <p>Authorization token saved to file.</p>
+        <p>You may close this window.</p>
+      `);
+
+      setTimeout(() => this.oauthServer?.close(), 1000);
+      return(code);
+
     } catch (error) {
-      const err = new Error(`Token refresh failed: ${error}`)
-      this.emit('error', err)
-      throw err
+      console.error(chalk.blue(`[${tstamp}] [SmarthqClient] /callback error: caught in getAuthToken`, error));
+      res.status(500).send('Authentication failed: ' + error);
     }
+  });
+  this.oauthServer = app.listen(port, () => {
+    this.debug(`SmartHQ OAuth listening on ${port}`);
+  });
+      
+}
+
+  async exchangeCodeForToken(code: string) {
+    return this.getAccessToken({
+      grant_type:     'authorization_code',
+      client_id:      this.config.clientId,
+      client_secret:  this.config.clientSecret,
+      redirect_uri:   this.config.redirectUri,
+      code:           code
+    });
+  }
+//*======================================================================================
+   async getAccessToken(requestBody: Record<string, string>) {
+    try {
+      const response = await this.httpClient.post(
+        `${LOGIN_URL}/oauth2/token`,
+        stringify(requestBody),
+        { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+      );
+      
+      this.saveToken(response.data);
+    } catch (error) {
+      console.error(chalk.blue(`[${new Date().toLocaleString('en-US')}] [SmarthqClient] Error caught in getAccessToken:`, error));
+      throw await this.handleApiError('Failed to get access token', error)
+    }
+  }
+
+  saveToken(data: AxiosResponse['data']) {
+    SmartHQClient.refresh_token = data.refresh_token;
+    SmartHQClient.access_token = data.access_token;
+    SmartHQClient.expires = Date.now() + data.expires_in * 1000;
+   // Object.assign(this, data);
+    try {
+      writeFileSync(this.tokenPath, JSON.stringify(data, null, 2));
+    } catch (error) {
+      const tstamp = new Date().toLocaleString('en-US')
+      console.error(chalk.blue(`[${tstamp}] [SmarthqClient] Error saving token: `, error));
+    }
+  }
+
+  loadAccessToken() {
+    if (!existsSync(this.tokenPath)) return;
+    const data: string = readFileSync(this.tokenPath).toString('utf8');
+    const tokenData = JSON.parse(data);
+    // Object.assign(this, tokenData);
+    SmartHQClient.refresh_token = tokenData.refresh_token;
+    SmartHQClient.access_token = tokenData.access_token;
+    SmartHQClient.expires = Date.now() + tokenData.expires_in * 1000;
+  }
+
+  getWebSocket() {
+    return this.websocket;
   }
 
   /**
    * Connect to the WebSocket for real-time updates
    */
   async connect(): Promise<void> {
-    if (!this.credentials) {
+    if (!SmartHQClient.access_token) {
       throw new Error('Not authenticated. Call authenticate() first.')
     }
 
     try {
       const wsEndpoint = await this.getWebSocketEndpoint()
-      this.log(`Connecting to WebSocket: ${wsEndpoint.endpoint}`)
 
       this.websocket = new WebSocket(wsEndpoint.endpoint)
 
       this.websocket.on('open', () => {
-        this.log('WebSocket connected')
         this.reconnectAttempts = 0
         this.emit('connected')
+        this.debug('WebSocket connection established')
         this.setupPingPong()
         this.configureWebSocket()
       })
@@ -193,7 +296,7 @@ export class SmartHQClient extends EventEmitter {
       })
 
       this.websocket.on('close', () => {
-        this.log('WebSocket disconnected, attempting to reconnect...')
+        this.debug('WebSocket connection closed')
         this.emit('disconnected')
         this.clearPingPong()
         this.attemptReconnect()
@@ -201,11 +304,12 @@ export class SmartHQClient extends EventEmitter {
 
       this.websocket.on('error', (error: Error) => {
         this.emit('error', error)
+        this.debug('WebSocket connection error: ' + error.message)
       })
     } catch (error) {
       const err = new Error(`WebSocket connection failed: ${error}`)
       this.emit('error', err)
-      throw err
+      console.error(chalk.blue(`[${new Date().toLocaleString('en-US')}] [SmarthqClient] WebSocket connection error:`, error));
     }
   }
 
@@ -213,7 +317,7 @@ export class SmartHQClient extends EventEmitter {
    * Disconnect from the WebSocket
    */
   async disconnect(): Promise<void> {
-    this.log('Disconnecting WebSocket')
+    this.debug('Disconnecting WebSocket')
     this.clearPingPong()
     if (this.websocket) {
       this.websocket.close()
@@ -235,19 +339,24 @@ export class SmartHQClient extends EventEmitter {
   /**
    * Get list of devices with optional filtering and pagination
    */
-  async getDevices(params?: Record<string, any>): Promise<DeviceListResponse> {
+  async getDevices(): Promise<DeviceListResponse> {
     try {
-      const response = await this.httpClient.get<DeviceListResponse>('/v2/device', { params })
-
+      const response = await this.httpClient.get<DeviceListResponse>('/v2/device',
+        { headers: await this.httpHeaders() }
+      );
       // Cache devices
-      for (const device of response.data.items) {
+      for (const device of response.data.devices) {
         this.devices.set(device.deviceId, device)
       }
-
-      this.log(`Retrieved ${response.data.items.length} devices`)
       return response.data
-    } catch (error) {
-      throw this.handleApiError('Failed to get devices', error)
+    } catch (error: AxiosError | any) {
+        if (error.response?.status === 401) {
+          await this.refreshAccessToken();
+          return await this.getDevices();
+        } else {
+          throw this.handleApiError('Failed to get devices', error)
+        }
+        
     }
   }
 
@@ -256,12 +365,17 @@ export class SmartHQClient extends EventEmitter {
    */
   async getDevice(deviceId: string): Promise<Device> {
     try {
-      const response = await this.httpClient.get<Device>(`/v2/device/${deviceId}`)
-      this.devices.set(deviceId, response.data)
-      this.log(`Retrieved device: ${deviceId}`)
+      const response = await this.httpClient.get<Device>(`/v2/device/${deviceId}`,
+        { headers: await this.httpHeaders() });
+      this.devices.set(deviceId, response.data);
       return response.data
-    } catch (error) {
-      throw this.handleApiError(`Failed to get device ${deviceId}`, error)
+    } catch (error: AxiosError | any) {
+        if (error.response?.status === 401) {
+          await this.refreshAccessToken();
+          return await this.getDevice(deviceId);
+        } else {
+          throw this.handleApiError(`Failed to get device ${deviceId}`, error)
+        }
     }
   }
 
@@ -270,7 +384,7 @@ export class SmartHQClient extends EventEmitter {
    */
   async getDeviceCount(params?: Record<string, any>): Promise<DeviceCountResponse> {
     try {
-      const response = await this.httpClient.get<DeviceCountResponse>('/v2/device/count', { params })
+      const response = await this.httpClient.get<DeviceCountResponse>('/v2/device/count', { params, headers: await this.httpHeaders() })
       return response.data
     } catch (error) {
       throw this.handleApiError('Failed to get device count', error)
@@ -284,13 +398,17 @@ export class SmartHQClient extends EventEmitter {
     try {
       const response = await this.httpClient.get<ServiceDetailsResponse>(
         `/v2/device/${deviceId}/service/${serviceId}`,
-      )
+        { headers: await this.httpHeaders() }); 
       return response.data
-    } catch (error) {
-      throw this.handleApiError(
-        `Failed to get service details for ${deviceId}/${serviceId}`,
-        error,
-      )
+    } catch (error: AxiosError | any) {
+        if (error.response?.status === 401) {
+          await this.refreshAccessToken();
+          return await this.getServiceDetails(deviceId, serviceId);
+        } else {
+          throw this.handleApiError(
+            `Failed to get service details for ${deviceId}/${serviceId}`
+            , error)
+        }
     }
   }
 
@@ -305,7 +423,7 @@ export class SmartHQClient extends EventEmitter {
     try {
       const response = await this.httpClient.get<ServiceHistoryResponse>(
         `/v2/device/${deviceId}/service/${serviceId}/history`,
-        { params },
+        { params, headers: await this.httpHeaders() },
       )
       return response.data
     } catch (error) {
@@ -325,13 +443,29 @@ export class SmartHQClient extends EventEmitter {
     command: Record<string, any>,
   ): Promise<void> {
     try {
-      await this.httpClient.post(`/v2/device/${deviceId}/service/${serviceId}`, command)
-      this.log(`Updated service ${serviceId} on device ${deviceId}`)
+      await this.httpClient.post(`/v2/device/${deviceId}/service/${serviceId}`, 
+        command, 
+        { headers: await this.httpHeaders() });
     } catch (error) {
       throw this.handleApiError(
         `Failed to update service ${serviceId} on device ${deviceId}`,
         error,
       )
+    }
+  }
+  /**
+   * Send command to device.
+   */
+  async sendCommand(request: SendCommandRequest): Promise<SendCommandSuccessResponse> {
+    try {
+      const response = await this.httpClient.post<SendCommandSuccessResponse>(
+        '/v2/command',
+        request,
+        { headers: await this.httpHeaders() }
+      )
+      return response.data
+    } catch (error) {
+      throw this.handleApiError('Failed to send command', error)
     }
   }
 
@@ -341,10 +475,10 @@ export class SmartHQClient extends EventEmitter {
   async sendCommands(request: SendCommandsRequest): Promise<SendCommandsSuccessResponse> {
     try {
       const response = await this.httpClient.post<SendCommandsSuccessResponse>(
-        '/v2/command',
+        '/v2/commands',
         request,
+        { headers: await this.httpHeaders() }
       )
-      this.log(`Sent ${request.commands.length} command(s)`)
       return response.data
     } catch (error) {
       throw this.handleApiError('Failed to send commands', error)
@@ -358,7 +492,7 @@ export class SmartHQClient extends EventEmitter {
     try {
       const response = await this.httpClient.get<DeviceAlertsResponse>(
         `/v2/device/${deviceId}/alert`,
-        { params },
+        { params, headers: await this.httpHeaders() },
       )
       return response.data
     } catch (error) {
@@ -376,7 +510,7 @@ export class SmartHQClient extends EventEmitter {
     try {
       const response = await this.httpClient.get<DevicePresenceResponse>(
         `/v2/device/${deviceId}/presence`,
-        { params },
+        { params, headers: await this.httpHeaders() },
       )
       return response.data
     } catch (error) {
@@ -395,6 +529,7 @@ export class SmartHQClient extends EventEmitter {
       const response = await this.httpClient.post(
         `/v2/device/${deviceId}/history`,
         request,
+        { headers: await this.httpHeaders() },
       )
       return response.data
     } catch (error) {
@@ -413,6 +548,7 @@ export class SmartHQClient extends EventEmitter {
       const response = await this.httpClient.post(
         `/v2/device/${deviceId}/history/calculated`,
         request,
+        { headers: await this.httpHeaders() },
       )
       return response.data
     } catch (error) {
@@ -420,6 +556,8 @@ export class SmartHQClient extends EventEmitter {
     }
   }
 
+
+  
   /**
    * Get recent alerts across all devices
    */
@@ -427,7 +565,7 @@ export class SmartHQClient extends EventEmitter {
     try {
       const response = await this.httpClient.get<RecentAlertResponse>(
         '/v2/alert/recent',
-        { params },
+        { params, headers: await this.httpHeaders() },
       )
       return response.data
     } catch (error) {
@@ -445,7 +583,7 @@ export class SmartHQClient extends EventEmitter {
     try {
       const response = await this.httpClient.get<AlertReport>(
         `/v2/alert/${alertType}/report`,
-        { params },
+        { params, headers: await this.httpHeaders() },
       )
       return response.data
     } catch (error) {
@@ -460,7 +598,7 @@ export class SmartHQClient extends EventEmitter {
     try {
       const response = await this.httpClient.get<AlertCountResponse>(
         '/v2/alert/count',
-        { params },
+        { params, headers: await this.httpHeaders() },
       )
       return response.data
     } catch (error) {
@@ -478,8 +616,8 @@ export class SmartHQClient extends EventEmitter {
     try {
       await this.httpClient.delete(
         `/v2/device/${deviceId}/alert/${alertType}`,
+        { headers: await this.httpHeaders() },
       )
-      this.log(`Deleted alert ${alertType} for device ${deviceId}`)
     } catch (error) {
       throw this.handleApiError(`Failed to delete alert for device ${deviceId}`, error)
     }
@@ -496,7 +634,7 @@ export class SmartHQClient extends EventEmitter {
     try {
       const response = await this.httpClient.get<FavoritesResponse>(
         '/v2/favorite',
-        { params },
+        { params , headers: await this.httpHeaders()},
       )
       return response.data
     } catch (error) {
@@ -512,6 +650,7 @@ export class SmartHQClient extends EventEmitter {
       const response = await this.httpClient.post<SaveFavoriteResponse>(
         '/v2/favorite',
         request,
+        { headers: await this.httpHeaders() },
       )
       return response.data
     } catch (error) {
@@ -530,6 +669,7 @@ export class SmartHQClient extends EventEmitter {
       const response = await this.httpClient.put<UpdateFavoriteResponse>(
         `/v2/favorite/${favoriteId}`,
         request,
+        { headers: await this.httpHeaders() },
       )
       return response.data
     } catch (error) {
@@ -547,6 +687,7 @@ export class SmartHQClient extends EventEmitter {
       const response = await this.httpClient.put<UpdateFavoriteOrderResponse>(
         '/v2/favorite/order',
         request,
+        { headers: await this.httpHeaders() },
       )
       return response.data
     } catch (error) {
@@ -559,8 +700,9 @@ export class SmartHQClient extends EventEmitter {
    */
   async deleteFavorite(favoriteId: string): Promise<void> {
     try {
-      await this.httpClient.delete(`/v2/favorite/${favoriteId}`)
-      this.log(`Deleted favorite ${favoriteId}`)
+      await this.httpClient.delete(`/v2/favorite/${favoriteId}`,
+        { headers: await this.httpHeaders() },
+      )
     } catch (error) {
       throw this.handleApiError(`Failed to delete favorite ${favoriteId}`, error)
     }
@@ -577,7 +719,7 @@ export class SmartHQClient extends EventEmitter {
     try {
       const response = await this.httpClient.get<GatewayListResponse>(
         '/v2/gateway',
-        { params },
+        { params, headers: await this.httpHeaders() },
       )
       return response.data
     } catch (error) {
@@ -593,6 +735,7 @@ export class SmartHQClient extends EventEmitter {
       const response = await this.httpClient.post<GatewayResponse>(
         '/v2/gateway',
         request,
+        { headers: await this.httpHeaders() },
       )
       return response.data
     } catch (error) {
@@ -606,8 +749,8 @@ export class SmartHQClient extends EventEmitter {
   async removeGateway(gatewayId: string, force: boolean = false): Promise<void> {
     try {
       const params = force ? { force: 'true' } : {}
-      await this.httpClient.delete(`/v2/gateway/${gatewayId}`, { params })
-      this.log(`Removed gateway ${gatewayId}`)
+      await this.httpClient.delete(`/v2/gateway/${gatewayId}`, 
+        { params, headers: await this.httpHeaders() })
     } catch (error) {
       throw this.handleApiError(`Failed to remove gateway ${gatewayId}`, error)
     }
@@ -620,6 +763,7 @@ export class SmartHQClient extends EventEmitter {
     try {
       const response = await this.httpClient.get<GatewayTagsResponse>(
         `/v2/gateway/${gatewayId}/tag`,
+        { headers: await this.httpHeaders() },
       )
       return response.data
     } catch (error) {
@@ -638,6 +782,7 @@ export class SmartHQClient extends EventEmitter {
       const response = await this.httpClient.post<GatewayTagsManageResponse>(
         `/v2/gateway/${gatewayId}/tag`,
         request,
+        { headers: await this.httpHeaders() },
       )
       return response.data
     } catch (error) {
@@ -652,8 +797,8 @@ export class SmartHQClient extends EventEmitter {
     try {
       await this.httpClient.delete(`/v2/gateway/${gatewayId}/tag`, {
         data: { tagNames },
+        headers: await this.httpHeaders(),
       })
-      this.log(`Deleted tags for gateway ${gatewayId}`)
     } catch (error) {
       throw this.handleApiError(`Failed to delete tags for gateway ${gatewayId}`, error)
     }
@@ -670,6 +815,7 @@ export class SmartHQClient extends EventEmitter {
     try {
       const response = await this.httpClient.get<DeviceSetting[]>(
         `/v2/device/${deviceId}/setting`,
+        { headers: await this.httpHeaders() },
       )
       return response.data
     } catch (error) {
@@ -684,6 +830,7 @@ export class SmartHQClient extends EventEmitter {
     try {
       const response = await this.httpClient.get<DeviceSettingResponse>(
         `/v2/device/${deviceId}/setting/${ruleId}`,
+        { headers: await this.httpHeaders() },
       )
       return response.data
     } catch (error) {
@@ -710,6 +857,7 @@ export class SmartHQClient extends EventEmitter {
       const response = await this.httpClient.post<DeviceSetTagResponse>(
         `/v2/device/${deviceId}/tag/${tagName}`,
         request,
+        { headers: await this.httpHeaders() },
       )
       return response.data
     } catch (error) {
@@ -728,6 +876,7 @@ export class SmartHQClient extends EventEmitter {
       const response = await this.httpClient.post<GetTagValuesResponse>(
         `/v2/tag/${tagName}/value`,
         request,
+        { headers: await this.httpHeaders() },
       )
       return response.data
     } catch (error) {
@@ -746,6 +895,7 @@ export class SmartHQClient extends EventEmitter {
     try {
       const response = await this.httpClient.get<FileDownloadResponse>(
         `/v2/file/${fileId}`,
+        { headers: await this.httpHeaders() },
       )
       return response.data
     } catch (error) {
@@ -764,6 +914,7 @@ export class SmartHQClient extends EventEmitter {
     try {
       const response = await this.httpClient.get<SchemaListResponse>(
         '/v2/schema',
+        { headers: await this.httpHeaders() },
       )
       return response.data
     } catch (error) {
@@ -778,6 +929,7 @@ export class SmartHQClient extends EventEmitter {
     try {
       const response = await this.httpClient.get<SchemaResponse>(
         `/v2/schema/${schemaName}`,
+        { headers: await this.httpHeaders() },
       )
       return response.data
     } catch (error) {
@@ -796,6 +948,7 @@ export class SmartHQClient extends EventEmitter {
       const response = await this.httpClient.post<SchemaPolicyValidationResponse>(
         `/v2/schema/${schemaName}`,
         request,
+        { headers: await this.httpHeaders() },
       )
       return response.data
     } catch (error) {
@@ -832,18 +985,19 @@ export class SmartHQClient extends EventEmitter {
     const config: PubsubConfig = {
       kind: 'websocket#pubsub',
       action: 'pubsub',
+      pubsub: true,
       services: true,
       alerts: true,
       presence: true,
       commands: true,
     }
+   
 
-    this.websocket.send(JSON.stringify(config))
-    this.log('Configured WebSocket subscriptions')
+    const response = this.websocket.send(JSON.stringify(config))
   }
 
   /**
-   * Set up ping/pong keep-alive (30 seconds)
+   * Set up ping/pong keep-alive (60 seconds)
    */
   private setupPingPong(): void {
     if (!this.websocket) {
@@ -861,13 +1015,11 @@ export class SmartHQClient extends EventEmitter {
 
         // Set timeout waiting for pong
         this.pongTimeout = setTimeout(() => {
-          this.log('Pong timeout - reconnecting')
+          this.debug('Pong timeout - reconnecting')
           this.websocket?.close()
         }, 10000)
       }
-    }, 30000)
-
-    this.log('Ping/pong keep-alive initialized')
+    }, PING_INTERVAL)
   }
 
   /**
@@ -943,11 +1095,11 @@ export class SmartHQClient extends EventEmitter {
       delay,
     })
 
-    this.log(`Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`)
+    this.debug(`Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`)
 
     setTimeout(async () => {
       try {
-        await this.refreshToken()
+        await this.refreshAccessToken();
         await this.connect()
       } catch (error) {
         this.emit('error', new Error(`Reconnection failed: ${error}`))
@@ -964,129 +1116,77 @@ export class SmartHQClient extends EventEmitter {
    */
   private async getWebSocketEndpoint(): Promise<WebsocketEndpoint> {
     try {
-      const response = await this.httpClient.get<WebsocketEndpoint>('/v2/websocket')
+      const response = await this.httpClient.get<WebsocketEndpoint>('/v2/websocket',
+        { headers: await this.httpHeaders() }
+      );
       return response.data
     } catch (error) {
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 401) {
+        await this.refreshAccessToken();
+        return await this.getWebSocketEndpoint();
+        }
+      }
       throw this.handleApiError('Failed to get WebSocket endpoint', error)
     }
   }
 
-  /**
-   * Perform OAuth2 authentication flow
-   */
-  private async getOAuth2Token(): Promise<any> {
-    try {
-      const region = LOGIN_REGIONS[this.config.region || 'US'] || LOGIN_REGIONS.US
-      const cookieHeader = `abgea_region=${region}; Domain=accounts.brillion.geappliances.com; Path=/`
-
-      // Step 1: Get authorization page
-      const authParams = {
-        client_id: OAUTH2_CLIENT_ID,
-        response_type: 'code',
-        access_type: 'offline',
-        redirect_uri: OAUTH2_REDIRECT_URI,
-      }
-
-      const authResponse = await axios.get(`${LOGIN_URL}/oauth2/auth`, {
-        params: authParams,
-        headers: { Cookie: cookieHeader },
-        validateStatus: () => true,
-      })
-
-      // Step 2: Extract form data from HTML response
-      const formDataMatch = authResponse.data.match(/<form[^>]*id="frmsignin"[^>]*>([\s\S]*?)<\/form>/)
-      if (!formDataMatch) {
-        throw new Error('Could not find login form in authentication response')
-      }
-
-      const inputMatches = formDataMatch[1].match(/<input[^>]*name="([^"]+)"[^>]*value="([^"]*)"[^>]*>/g) || []
-      const formData: Record<string, string> = {}
-
-      for (const inputMatch of inputMatches) {
-        const nameMatch = inputMatch.match(/name="([^"]+)"/)
-        const valueMatch = inputMatch.match(/value="([^"]*)"/)
-        if (nameMatch && valueMatch) {
-          formData[nameMatch[1]] = valueMatch[1]
-        }
-      }
-
-      // Step 3: Add credentials
-      formData.username = this.config.username
-      formData.password = this.config.password
-
-      // Step 4: Submit login form
-      const loginResponse = await axios.post(`${LOGIN_URL}/oauth2/g_authenticate`, formData, {
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'Cookie': cookieHeader,
-        },
-        maxRedirects: 0,
-        validateStatus: () => true,
-      })
-
-      // Step 5: Extract authorization code from redirect
-      let authCode: string
-      const redirectUrl = loginResponse.headers.location || loginResponse.headers.Location
-      if (loginResponse.status === 302 && redirectUrl) {
-        const urlParams = new URLSearchParams(redirectUrl.split('?')[1])
-        authCode = urlParams.get('code')!
-      } else {
-        throw new Error('Failed to get authorization code from login response')
-      }
-
-      // Step 6: Exchange code for token
-      const tokenResponse = await axios.post(`${LOGIN_URL}/oauth2/token`, {
-        code: authCode,
-        client_id: OAUTH2_CLIENT_ID,
-        client_secret: OAUTH2_CLIENT_SECRET,
-        redirect_uri: OAUTH2_REDIRECT_URI,
-        grant_type: 'authorization_code',
-      }, {
-        auth: {
-          username: OAUTH2_CLIENT_ID,
-          password: OAUTH2_CLIENT_SECRET,
-        },
-        validateStatus: () => true,
-      })
-
-      if (tokenResponse.status !== 200) {
-        throw new Error(`Token exchange failed with status ${tokenResponse.status}`)
-      }
-
-      return tokenResponse.data
-    } catch (error) {
-      throw new Error(`OAuth2 token retrieval failed: ${error}`)
-    }
-  }
-
+  
   /**
    * Handle API errors with consistent formatting
    */
-  private handleApiError(message: string, error: any): Error {
+ public async handleApiError(message: string, error: any): Promise<Error> {
     let errorMsg = message
 
     if (error.response?.status === 401) {
-      errorMsg += ' - Unauthorized (invalid credentials)'
+      errorMsg += ' - Unauthorized (invalid access token)'
+      await this.refreshAccessToken().catch((refreshError) => {
+        this.debug(`Token refresh failed: ${refreshError}`)
+        this.emit('error', new Error(`Token refresh failed: ${refreshError}`))
+      })
+    } else if (error.response?.status === 400) {
+      errorMsg += ' - Bad Request (missing or invalid parameters)'
     } else if (error.response?.status === 403) {
       errorMsg += ' - Forbidden (insufficient permissions)'
     } else if (error.response?.status === 404) {
       errorMsg += ' - Not found'
+    } else if (error.response?.status === 408) {
+      errorMsg += ' - Request Timeout'
+    } else if (error.response?.status === 409) {
+      errorMsg += ' - Device not removable)'
+    } else if (error.response?.status === 412) {
+      errorMsg += ' - Gateway offline or tag managed at gateway level'
     } else if (error.response?.status === 429) {
       errorMsg += ' - Rate limited'
     } else if (error.message) {
       errorMsg += ` - ${error.message}`
     }
-
     return new Error(errorMsg)
+  }
+
+  /**
+   * Intercept expired access token errors and attempt to refresh token before retrying request
+   */
+
+   async httpHeaders() {
+    if (!SmartHQClient.access_token || Date.now() > SmartHQClient.expires - 60000) { // Refresh token if it's expired or will expire in the next 1 minute (tokens are valid for 60 minutes)
+      try {
+        await this.refreshAccessToken();
+      } catch (error: any) {
+        this.debug( 'Failed to refresh access token in httpHeaders: ' + error.response?.status);
+      }
+    }
+    return { Authorization: `Bearer ${SmartHQClient.access_token}` };
   }
 
   /**
    * Internal logging utility (respects debug config)
    */
-  private log(message: string): void {
+  public debug(message: string): void {
+
     if (this.config.debug) {
-      // eslint-disable-next-line no-console
-      console.log(`[SmartHQClient] ${message}`)
+      const tstamp = new Date().toLocaleString('en-US')
+      console.log(chalk.white(`[${tstamp}]` + chalk.yellow(` [SmartHQClient] ${message}`)));
     }
   }
 

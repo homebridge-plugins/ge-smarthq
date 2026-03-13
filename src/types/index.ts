@@ -2,6 +2,8 @@
  * Configuration for SmartHQ API client
  */
 export interface SmartHQConfig {
+  clientId: string
+  clientSecret: string
   redirectUri: string
   debug?: boolean
 }
@@ -450,7 +452,6 @@ export interface AlertCountResponse {
 
 export interface RecentAlertResponse {
   alerts: AlertHistoryEntry[]
-  //items: AlertHistoryEntry[]
   total?: number
 }
 
