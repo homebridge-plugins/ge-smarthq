@@ -46,5 +46,5 @@
  * ```
  */
 
-export * from './types/index';
-export { SmartHQClient } from './api/ge-client';
+export * from './types/index.js';
+export { SmartHQClient } from './api/ge-client.js';

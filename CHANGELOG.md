@@ -2,10 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [?.?.?](https://github.com/homebridge-plugins/ge-smarthq/releases/tag/v1.0.1) (2026-03-15)
+
+## What's Changed
+- OAuth2 initial authentication process for Digital Twin API
+- Client Id and Client secret passed via config.schema.json
+- Access, refresh tokens and expire changed to static vars
+- Additional error handling for 401 (invalid credentials) errors
+- Add new function 'sendCommand' for command to single device
+- Handling of the http headers (authorization)
+- Add requirement for initial setup of SmartHQ account in order to use Digital Twin API
+
 ## [1.0.1](https://github.com/homebridge-plugins/ge-smarthq/releases/tag/v1.0.1) (2026-02-12)
 
 ## What's Changed
 * No notable changes
+
 
 **Full Changelog**: https://github.com/homebridge-plugins/ge-smarthq/compare/...v1.0.1
 

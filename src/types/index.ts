@@ -2,9 +2,9 @@
  * Configuration for SmartHQ API client
  */
 export interface SmartHQConfig {
-  username: string
-  password: string
-  region?: 'US' | 'EU'
+  clientId: string
+  clientSecret: string
+  redirectUri: string
   debug?: boolean
 }
 
@@ -12,7 +12,7 @@ export interface SmartHQConfig {
  * OAuth2 credentials
  */
 export interface SmartHQCredentials {
-  access_token: string
+  access_token?: string
   token_type: string
   expires_in: number
   refresh_token?: string
@@ -24,32 +24,35 @@ export interface SmartHQCredentials {
 // ============================================================================
 
 export interface Device {
-  deviceId: string
-  deviceType: string
-  userId: string
-  applianceId?: string
-  adapterId?: string
-  nickname?: string
-  online?: string
-  jid?: string
-  macAddress?: string
-  serialNumber?: string
-  modelNumber?: string
-  services?: DeviceService[]
-  lastSyncTime?: string
-  gatewayId?: string
-  metadata?: Record<string, any>
+  deviceId: string;
+  deviceType: string;
+  services?: DeviceService[];
+  lastSyncTime: string;
+  roomNumber: string;
+  serial: string;
+  lastPresenceTime: string;
+  createdDateTime: string;
+  presence: string;
+  gatewayId: string;
+  room: string;
+  icon: string;
+  manufacturer: string;
+  nickname: string;
+  model: string;
+  floor: string;
+  macAddress: string;
 }
 
 export interface DeviceService {
-  serviceId: string
-  serviceType: string
-  domainType: string
-  serviceDeviceType: string
-  lastStateTime?: string
-  lastSyncTime?: string
-  state?: Record<string, any>
-  config?: Record<string, any>
+  serviceId: string;
+  serviceType: string;
+  domainType: string;
+  serviceDeviceType: string;
+  supportedCommands: string[];
+  state?: Record<string, unknown>;
+  config?: Record<string, unknown>;
+  lastStateTime?: string;
+  lastSyncTime?: string;
 }
 
 // ============================================================================
@@ -58,7 +61,7 @@ export interface DeviceService {
 
 export interface DeviceListResponse {
   total: number
-  items: Device[]
+  devices: Device[]
   page?: number
   perPage?: number
 }
@@ -209,14 +212,30 @@ export interface CommandRequest {
   [key: string]: any
 }
 
+export interface SendCommandRequest {
+  kind: string
+  deviceId: string
+  serviceType: string
+  domainType: string
+  serviceDeviceType: string
+  command: Record<string, any>
+  successOnNoDeviceMatches?: boolean
+}
+
+export interface SendCommandSuccessResponse {
+  correlationId: string
+  timestamp: string
+}
+
 export interface SendCommandsRequest {
-  kind: 'appliance#command-request'
+  kind: string
   commands: CommandRequest[]
 }
 
 export interface SendCommandsSuccessResponse {
+  success: boolean
+  outcome: string
   correlationId: string
-  timestamp: string
 }
 
 export interface CommandResponse {
@@ -415,10 +434,12 @@ export interface AlertReport {
 }
 
 export interface AlertHistoryEntry {
-  alertId: string
+  deviceType: string
+  lastAlertTime: string
   alertType: string
+  model: string
+  lastAlertId: string
   deviceId: string
-  timestamp: string
   severity?: string
   message?: string
   resolved?: boolean
@@ -430,7 +451,7 @@ export interface AlertCountResponse {
 }
 
 export interface RecentAlertResponse {
-  items: AlertHistoryEntry[]
+  alerts: AlertHistoryEntry[]
   total?: number
 }
 
