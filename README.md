@@ -30,6 +30,7 @@ yarn add ge-smarthq
 - npm or yarn package manager
 - GE SmartHQ account with OAuth2 credentials (optional - defaults are provided)
 <!--
+
 ## Environment Variables
 
 By default, this library uses public OAuth2 credentials for the GE SmartHQ API. You can override these by setting environment variables (useful for custom or restricted API access):
@@ -42,38 +43,40 @@ SMARTHQ_OAUTH2_CLIENT_SECRET=your_client_secret_here
 
 **Important**: Never commit `.env` files to version control. Use `.env.local` or similar for local development. See [.env.example](.env.example) for the template.
 -->
+
 ## Quick Start
 
 ### Basic Usage
 
 ```typescript
-import { SmartHQClient } from 'ge-smarthq';
+import { SmartHQClient } from 'ge-smarthq'
 
 // Create client instance
 this.client = new SmartHQClient(
-      {
-      clientId:     'your-client-id',
-      clientSecret: 'your-client-secret',
-      redirectUri:  'your-redirect-uri',
-      debug:        false,
-    });
+  {
+    clientId: 'your-client-id',
+    clientSecret: 'your-client-secret',
+    redirectUri: 'your-redirect-uri',
+    debug: false,
+  }
+)
 // Authenticate
-await client.authenticate();
+await client.authenticate()
 
 // Get devices
-const devicesResponse = await client.getDevices();
-console.log(`Found ${devicesResponse.items.length} devices`);
+const devicesResponse = await client.getDevices()
+console.log(`Found ${devicesResponse.items.length} devices`)
 
 // Connect to real-time updates
-await client.connect();
+await client.connect()
 
 // Handle real-time updates
 client.on('service_update', (message) => {
-  console.log('Service updated:', message);
-});
+  console.log('Service updated:', message)
+})
 
 // Disconnect when done
-await client.disconnect();
+await client.disconnect()
 ```
 
 ### Sending Command
@@ -87,7 +90,7 @@ await client.sendCommand({
   domainType:         'your-domain-type'
   command: {
     commandType: 'your-command-type',
-    value:        value 
+    value:        value
   },
 });
 ```
@@ -96,22 +99,22 @@ await client.sendCommand({
 
 ```typescript
 client.on('alert', (message) => {
-  console.log('Device alert:', message);
-});
+  console.log('Device alert:', message)
+})
 
-const alerts = await client.getDeviceAlerts('device-id');
-console.log('Recent alerts:', alerts.items);
+const alerts = await client.getDeviceAlerts('device-id')
+console.log('Recent alerts:', alerts.items)
 ```
 
 ### Tracking Device Presence
 
 ```typescript
 client.on('presence', (message) => {
-  console.log('Device presence:', message);
-});
+  console.log('Device presence:', message)
+})
 
-const presence = await client.getDevicePresence('device-id');
-console.log('Online:', presence.presence?.online);
+const presence = await client.getDevicePresence('device-id')
+console.log('Online:', presence.presence?.online)
 ```
 
 ## API Reference
@@ -120,22 +123,21 @@ console.log('Online:', presence.presence?.online);
 
 ```typescript
 interface SmartHQConfig {
-  clientId: string;        // SmartHQ account client Id
-  clientSecret: string;    // SmartHQ account client Secret
-  redirectUri:  string;    // redirectURI for SmartHQ API
-  debug?: boolean;         // Enable debug logging (default: false)
+  clientId: string // SmartHQ account client Id
+  clientSecret: string // SmartHQ account client Secret
+  redirectUri: string // redirectURI for SmartHQ API
+  debug?: boolean // Enable debug logging (default: false)
 }
 ```
-- To obtain a client Id and clientSecret follow the steps at [Get Started - SmartHQ Docs](https://docs.smarthq.com/get-started/)  
-- The authenticate() function will start a localhost server which is used for the redirectUri.  Example: http://localhost:8888/callback
+
+- To obtain a client Id and clientSecret follow the steps at [Get Started - SmartHQ Docs](https://docs.smarthq.com/get-started/)
+- The authenticate() function will start a localhost server which is used for the redirectUri. Example: http://localhost:8888/callback
 
 ### Client Methods
 
 #### Authentication
 
 - **`authenticate(): Promise<void>`** - Log in and obtain OAuth2 credentials
-
-
 
 #### Device Management
 
@@ -177,56 +179,67 @@ Listen for real-time updates using the EventEmitter interface:
 ```typescript
 // Service state updates
 client.on('service_update', (message: ServiceMessage) => {
-  console.log('Service:', message.serviceId, 'State:', message.state);
-});
+  console.log('Service:', message.serviceId, 'State:', message.state)
+})
 
 // Device lifecycle events (online/offline, added/removed)
 client.on('device_event', (message: DeviceMessage) => {
-  console.log('Device event:', message.event);
-});
+  console.log('Device event:', message.event)
+})
 
 // Device alerts (malfunctions, maintenance, etc.)
 client.on('alert', (message: AlertMessage) => {
-  console.log('Alert:', message.alertType);
-});
+  console.log('Alert:', message.alertType)
+})
 
 // Device presence (online/offline status)
 client.on('presence', (message: PresenceMessage) => {
-  console.log('Presence:', message.presence);
-});
+  console.log('Presence:', message.presence)
+})
 
 // Command execution results
 client.on('command_outcome', (message: CommandMessage) => {
-  console.log('Command outcome:', message.outcome);
-});
+  console.log('Command outcome:', message.outcome)
+})
 
 // Authentication events
 client.on('authenticated', () => {
-  console.log('Successfully authenticated');
-});
+  console.log('Successfully authenticated')
+})
 
 client.on('token_refreshed', () => {
-  console.log('OAuth2 token refreshed');
-});
+  console.log('OAuth2 token refreshed')
+})
 
 // Connection events
 client.on('connected', () => {
-  console.log('WebSocket connected');
-});
+  console.log('WebSocket connected')
+})
 
 client.on('disconnected', () => {
-  console.log('WebSocket disconnected');
-});
+  console.log('WebSocket disconnected')
+})
 
 client.on('reconnecting', (event: ReconnectingEvent) => {
-  console.log(`Reconnecting... Attempt ${event.attempt}, retry in ${event.delay}ms`);
-});
+  console.log(`Reconnecting... Attempt ${event.attempt}, retry in ${event.delay}ms`)
+})
 
 // Errors
 client.on('error', (error: Error) => {
-  console.error('Client error:', error);
-});
+  console.error('Client error:', error)
+})
 ```
+
+## API Reference & Swagger UI
+
+- 📖 **[View the full OpenAPI (Swagger) API Reference](https://github.com/homebridge-plugins/ge-smarthq/blob/main/docs/swagger/index.html)**
+
+<!--
+  For local development, the Swagger UI is available at docs/swagger/index.html after building docs.
+  This absolute link avoids TypeDoc warnings in published documentation.
+-->
+
+The Swagger UI provides a complete, interactive reference for all endpoints, request/response types, and authentication flows. Any module or consumer of this package can access the OpenAPI spec and documentation in the `docs/swagger/` directory after installation or from the published package.
 
 ## Advanced Usage
 
@@ -234,27 +247,28 @@ client.on('error', (error: Error) => {
 
 ```typescript
 const client = new SmartHQClient(
-      {
-      clientId:     '1234567898765432',
-      clientSecret: '1ju739ff93l0c873kaj92',
-      redirectUri:  'http://localhost:8888/callback',
-      debug:        true, // Enable debug output
-    });
+  {
+    clientId: '1234567898765432',
+    clientSecret: '1ju739ff93l0c873kaj92',
+    redirectUri: 'http://localhost:8888/callback',
+    debug: true, // Enable debug output
+  }
+)
 ```
 
 ### Error Handling
 
 ```typescript
 try {
-  await client.authenticate();
-  await client.connect();
+  await client.authenticate()
+  await client.connect()
 } catch (error) {
-  console.error('Failed to initialize client:', error);
+  console.error('Failed to initialize client:', error)
 }
 
 client.on('error', (error) => {
-  console.error('Runtime error:', error);
-});
+  console.error('Runtime error:', error)
+})
 ```
 
 ### Listening to Multiple Event Types
@@ -262,9 +276,9 @@ client.on('error', (error) => {
 ```typescript
 ['service_update', 'alert', 'presence'].forEach((event) => {
   client.on(event as any, (message) => {
-    console.log(`[${event}]`, message);
-  });
-});
+    console.log(`[${event}]`, message)
+  })
+})
 ```
 
 ## Supported Device Types
@@ -283,10 +297,11 @@ The API supports all GE SmartHQ-enabled appliances, including:
 
 To use this library in a Homebridge plugin:
 
-- Requires an account and setup documented in the steps at [Get Started - SmartHQ Docs](https://docs.smarthq.com/get-started/)  
-- A config.schema.json file that includes  clientId, clientSecret, redirectUri
+- Requires an account and setup documented in the steps at [Get Started - SmartHQ Docs](https://docs.smarthq.com/get-started/)
+- A config.schema.json file that includes clientId, clientSecret, redirectUri
 
 example config.schema.json ----
+
 ```typescript
 {
   "pluginAlias": "SmartHqPlatform",
@@ -324,7 +339,7 @@ example config.schema.json ----
     }
 ```
 
-- To obtain the initial access token and refresh token requires additional steps. Once the tokens are saved these steps will only be required if the token store file is deleted or missing. 
+- To obtain the initial access token and refresh token requires additional steps. Once the tokens are saved these steps will only be required if the token store file is deleted or missing.
   - Monitor the Homebridge log for '[SmarthqClient] Click to login for SmartHQ Auth setup ===>: http://localhost:8888/login
   - Click the url to redirect to SmartHQ authorization website.
   - Login with your account username and password.

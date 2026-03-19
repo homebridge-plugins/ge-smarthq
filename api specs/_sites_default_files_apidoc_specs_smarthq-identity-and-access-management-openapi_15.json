@@ -1,0 +1,472 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "description": "The SmartHQ Identity and Access Management API allows users to sign in with SmartHQ and authorize apps registered through the SmartHQ Developer Portal to securely access and control their SmartHQ account and devices. This API issues access tokens that authenticate API requests to control and monitor the user’s devices. For more information, see our [Authorization Documentation](https://docs.smarthq.com/device-control-and-monitoring/authorization/)",
+    "title": "SmartHQ Identity and Access Management API",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://accounts.brillion.geappliances.com"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Authorization",
+      "description": "Endpoints for initiating user authorization and obtaining authorization credentials."
+    },
+    { "name": "Token", "description": "Endpoints for obtaining tokens." },
+    {
+      "name": "App Logout",
+      "description": "Endpoint for clearing the SmartHQ browser session used in OAuth 2.0 flows."
+    },
+    {
+      "name": "User Registration",
+      "description": "Endpoints for a user to create a SmartHQ account and authorize your SmartHQ-integrated application"
+    }
+  ],
+  "paths": {
+    "/oauth2/auth": {
+      "get": {
+        "summary": "Initiate OAuth 2.0 authorization",
+        "description": "This endpoint initiates the [OAuth 2.0 authorization flow](https://docs.smarthq.com/device-control-and-monitoring/authorization/#authorization-flow). It displays a SmartHQ login and permissions authorization screen to the user and redirects them upon completion to the redirect_uri. <br><br> The response from calling this API endpoint is a SmartHQ-hosted web page for users to log in to SmartHQ. The first time a user logs in, they will be prompted to grant the SmartHQ app—identified by the provided Client ID—access to their SmartHQ account and connected devices. Upon successful authorization, the authorization server redirects the user to the specified redirect_uri with the [authorization code](https://docs.smarthq.com/device-control-and-monitoring/authorization/#oauth-20-tokens) as part of the URL. Two additional values appended to the redirect_uri are the expiration time of the corresponding authorization code in seconds and the optional state parameter. Because this endpoint returns a web page for users to interact with, this endpoint is not intended to be used in server-to-server calls and is meant to be opened in a web browser or webview.",
+        "tags": ["Authorization"],
+        "parameters": [
+          {
+            "name": "response_type",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "code"
+              ]
+            },
+            "description": "The requested response type. This value should be set to 'code' to receive an authorization code in the API response."
+          },
+          {
+            "name": "client_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The Client ID of your SmartHQ app. This is generated during the [app creation](https://docs.smarthq.com/get-started/#2-creating-an-app) in the SmartHQ Developer Portal. It is used by the authorization server to identify which application the user is authorizing."
+          },
+          {
+            "name": "redirect_uri",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The URL where the authorization server redirects users after they complete the authorization process. The Redirect URL should be the same [callback URL](https://docs.smarthq.com/device-control-and-monitoring/authorization/#callback-url) registered during your app's setup in the SmartHQ Developer Portal."
+          },
+          {
+            "name": "access_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "offline",
+                "online"
+              ],
+              "default": "offline"
+            },
+            "description": "Indicates whether a [refresh token](https://docs.smarthq.com/device-control-and-monitoring/authorization/#oauth-20-tokens) should be returned as part of the /oauth2/token response. Use 'offline' (default) to receive a refresh token. This allows your app to obtain new access tokens without requiring the user to log in again — by exchanging the refresh token for a new access token using /oauth2/token. Your app must make this exchange explicitly. Use 'online' to not receive a refresh token - when the access token expires, the user must reauthorize through this endpoint again. See our OAuth 2.0 [token documentation](https://docs.smarthq.com/device-control-and-monitoring/authorization/#oauth-20-tokens) for more details."
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "If a value is passed in the request, the same value will be returned as a URL parameter in the response callback after the user completes the authorization process."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Returns HTML of the SmartHQ login screen, allowing a user to enter their SmartHQ login credentials. Upon entering in login credentials, first time users will see an authorization screen to authorize your application. The user is then redirected to the redirect_uri with query parameters (the authorization code, an expiration time, and optionally a state) depending on the outcome.<br><br>Success example:<br>GET https://example-redirect_uri.com/redirect?code=someauthcode&state=somestate&expires_in=600<br><br>User canceled authorization example:<br>GET https://example-redirect_uri.com/redirect?error=invalid_request&error_description=User+did+not+authorize+access."
+          },
+          "400": {
+            "description": "Bad Request – The request is malformed or missing required parameters. The error is returned as JSON. No redirect is performed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "No response_type parameter"
+                    },
+                    "error_description": {
+                      "type": "string",
+                      "example": "Error: invalid_request. Missing response_type parameter value"
+                    }
+                  }
+                },
+                "examples": {
+                  "Missing response_type": {
+                    "summary": "No response_type parameter",
+                    "value": {
+                      "error": "No response_type parameter",
+                      "error_description": "Error: invalid_request. Missing response_type parameter value"
+                    }
+                  },
+                  "Missing client_id": {
+                    "summary": "No client_id parameter",
+                    "value": {
+                      "error": "No client_id parameter",
+                      "error_description": "Error: invalid_request. Missing parameters: client_id"
+                    }
+                  },
+                  "Missing redirect_uri": {
+                    "summary": "No redirect_uri parameter",
+                    "value": {
+                      "error": "No redirect_uri parameter",
+                      "error_description": "Error: invalid_request. Missing parameters: redirect_uri"
+                    }
+                  },
+                  "Invalid access_type": {
+                    "summary": "Invalid access_type parameter",
+                    "value": {
+                      "error": "Invalid access_type parameter",
+                      "error_description": "Error: invalid_request. Unsupported access type : {access_type passed}"
+                    }
+                  },
+                  "Invalid response_type": {
+                    "summary": "Invalid response_type parameter",
+                    "value": {
+                      "error": "Invalid response_type parameter",
+                      "error_description": "Error: invalid_request. Invalid response_type parameter value"
+                    }
+                  },
+                  "Invalid redirect_uri": {
+                    "summary": "Invalid redirect_uri parameter",
+                    "value": {
+                      "error": "Invalid redirect_uri parameter",
+                      "error_description": "Error: invalid_request. Invalid redirection uri {redirect_uri passed}"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized – The provided Client ID is invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Invalid client_id parameter"
+                    },
+                    "error_description": {
+                      "type": "string",
+                      "example": "Error: invalid_request. Invalid client id : {client_id passed}. ClientId is Invalid"
+                    }
+                  }
+                },
+                "examples": {
+                  "Invalid client_id": {
+                    "summary": "Invalid client_id parameter",
+                    "value": {
+                      "error": "Invalid client_id parameter",
+                      "error_description": "Error: invalid_request. Invalid client id : {client_id passed}. ClientId is Invalid"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/oauth2/token": {
+      "post": {
+        "summary": "Obtain an access token",
+        "description": "The purpose of this endpoint is to return an access token and optionally a refresh token. The 'grant_type' parameter specifies which credential is used to receive the access token:<br><br>**Authorization Code**<br>- Exchange an authorization code (obtained from the authorization server through /oauth2/auth) for an access token and, optionally, a refresh token. <br><br>**Refresh Token**<br>- Used to obtain a new access token by presenting a valid refresh token. <br><br>If 'access_type=offline' was specified during the /oauth2/auth request, a refresh token will be included in the JSON response alongside the access token no matter the grant_type chosen. The request must be sent as application/x-www-form-urlencoded, as required by the OAuth 2.0 specification. This ensures that sensitive data, like the client_secret, is sent in the body of the request rather than in the URL, reducing the risk of accidental exposure through logs or browser history.<br><br>To learn more about the tokens and their expiration time, see our OAuth 2.0 [token documentation](https://docs.smarthq.com/device-control-and-monitoring/authorization/#oauth-20-tokens).",
+        "tags": ["Token"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "grant_type": {
+                    "type": "string",
+                    "description": "Specifies how the access token is requested. Use 'authorization_code' to exchange an authorization code for a new access token, or 'refresh_token' to exchange a refresh token for a new access token.",
+                    "enum": ["authorization_code", "refresh_token"],
+                    "default": "authorization_code"
+                  },
+                  "client_id": {
+                    "type": "string",
+                    "example": "",
+                    "description": "The public identifier for your app, assigned during [app creation](https://docs.smarthq.com/get-started/#2-creating-an-app) in the SmartHQ Developer Portal. Used by the authorization server to identify which application is making the request."
+                  },
+                  "client_secret": {
+                    "type": "string",
+                    "example": "",
+                    "description": "The confidential credential assigned to your app during registration. It should be stored securely and never exposed in frontend or mobile apps."
+                  },
+                  "code": {
+                    "type": "string",
+                    "example": "",
+                    "description": "A required parameter when providing an authorization code. The authorization code, which is the input for this parameter, is received from the /oauth2/auth redirect after the user logs in and grants permission to your app."
+                  },
+                  "redirect_uri": {
+                    "type": "string",
+                    "example": "",
+                    "description": "A required parameter when providing an authorization code. This field is the same URI used in the initial /oauth2/auth request. It must match the registered [callback URL](https://docs.smarthq.com/device-control-and-monitoring/authorization/#callback-url) for the corresponding app in the developer portal."
+                  },
+                  "refresh_token": {
+                    "type": "string",
+                    "example": "",
+                    "description": "A required parameter when providing a refresh token. The refresh token is originally returned in the /oauth2/token response when access_type is set to 'offline' in the /oauth2/auth call."
+                  }
+                },
+                "required": ["grant_type", "client_id", "client_secret"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful token exchange. Returns an access token, an expiration time for the access token in seconds, a token type, which will always be set to 'Bearer', and optionally a refresh token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["token_type", "expires_in", "access_token"],
+                  "properties": {
+                    "token_type": {
+                      "type": "string",
+                      "example": "Bearer",
+                      "description": "The type of token being returned."
+                    },
+                    "expires_in": {
+                      "type": "integer",
+                      "example": 3600,
+                      "description": "The number of seconds the token is valid."
+                    },
+                    "access_token": {
+                      "type": "string",
+                      "example": "fFAGRNJru1FTz70EXAMPLE",
+                      "description": "The access token to be used in API requests."
+                    },
+                    "refresh_token": {
+                      "type": "string",
+                      "example": "xEoDL4iW3cxlI7yDbSRFYNG01kVKM2C-259HEXAMPLE",
+                      "description": "The refresh token. Only included when 'access_type=offline' was used during authorization."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request – The request is missing required parameters or includes invalid values.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "invalid_request"
+                    },
+                    "error_description": {
+                      "type": "string",
+                      "example": "Missing grant_type parameter value"
+                    }
+                  }
+                },
+                "examples": {
+                  "Missing grant_type": {
+                    "summary": "No grant_type parameter",
+                    "value": {
+                      "error": "invalid_request",
+                      "error_description": "Missing grant_type parameter value"
+                    }
+                  },
+                  "Invalid grant_type": {
+                    "summary": "Invalid grant_type parameter",
+                    "value": {
+                      "error": "invalid_request",
+                      "error_description": "Invalid grant_type parameter value"
+                    }
+                  },
+                  "Missing client_id": {
+                    "summary": "No client_id parameter",
+                    "value": {
+                      "error": "invalid_request",
+                      "error_description": "Missing parameters: client_id"
+                    }
+                  },
+                  "Missing redirect_uri": {
+                    "summary": "No redirect_uri parameter",
+                    "value": {
+                      "error": "invalid_request",
+                      "error_description": "Missing parameters: redirect_uri"
+                    }
+                  },
+                  "Invalid redirect_uri": {
+                    "summary": "Invalid redirect_uri parameter",
+                    "value": {
+                      "error": "invalid_request",
+                      "error_description": "Invalid redirection uri http://example.com/some/invalid/redirecturi"
+                    }
+                  },
+                  "Missing code": {
+                    "summary": "No code parameter",
+                    "value": {
+                      "error": "invalid_request",
+                      "error_description": "Missing parameters: code"
+                    }
+                  },
+                  "Invalid code": {
+                    "summary": "Invalid code parameter",
+                    "value": {
+                      "error": "invalid_request",
+                      "error_description": "Invalid code parameter"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized – The provided client credentials are invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "invalid_request"
+                    },
+                    "error_description": {
+                      "type": "string",
+                      "example": "ClientSecret is Invalid"
+                    }
+                  }
+                },
+                "examples": {
+                  "Invalid client_secret": {
+                    "summary": "The client_secret is incorrect",
+                    "value": {
+                      "error": "invalid_request",
+                      "error_description": "ClientSecret is Invalid"
+                    }
+                  },
+                  "Invalid client_id": {
+                    "summary": "The client_id is incorrect",
+                    "value": {
+                      "error": "invalid_request",
+                      "error_description": "ClientId is Invalid"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/oauth2/applogout": {
+      "get": {
+        "description": "This endpoint logs the user out of their SmartHQ OAuth session in a web browser or webview. It is intended to be used as a browser-based redirect from your app.<br><br>When invoked, the authorization server invalidates the user's web session and then redirects to the redirect_uri originally provided during authorization. If no redirect_uri was specified during the initial authorization request (/oauth2/auth), the authorization server will fall back to the default redirect URI registered for your app in the SmartHQ Developer Portal.<br><br>To learn more about this endpoint's purpose, its use case, and guidelines to include it in your application, view [app logout use case documentation](https://docs.smarthq.com/device-control-and-monitoring/authorization/#app-logout-use-case)",
+        "summary": "Log out OAuth session",
+        "tags": ["App Logout"],
+        "parameters": [
+          {
+            "name": "state",
+            "in": "query",
+            "description": "The state parameter is optional. However, it is recommended to use the state parameter and validate it between requests.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The user is logged out and redirected to the redirect_uri with logout=success and the optional state parameter passed in the URL. For example, if the redirect_uri is https://some-app-redirect-uri.com, after session invalidation, the user will be redirected to: https://some-app-redirect-uri.com?logout=success&state=somestate."
+          }
+        }
+      }
+    },
+    "/oauth2/register": {
+      "get": {
+        "description": "This endpoint allows users to create a SmartHQ account. The user is then able to verify their email and immediately sign in to their newly created account. After that, your application will receive an authorization code, given your [SmartHQ app's information](https://docs.smarthq.com/get-started/#2-creating-an-app) is included in the query parameters for this endpoint.\n\nThe query parameters are the exact same as the /oauth/auth endpoint in this API specification.\n\n**Note:** You are not expected to include this endpoint in your application. A user without a SmartHQ account can create one from the /oauth2/auth endpoint above. The /oauth2/auth endpoint's HTML page provides the option to create a new account, which redirects the end-user to this /oauth2/register endpoint to create an account, if the end-user chooses to do so.\n\nTo learn more, see our [Registration Documentation](https://docs.smarthq.com/device-control-and-monitoring/authorization/#registration-flow).\n\n**Browser-Only Access:** \nThis endpoint returns a web page for user interaction and is not intended for server-to-server communication.",
+        "summary": "Register a user from an OAuth based login application",
+        "tags": ["User Registration"],
+        "parameters": [
+          {
+            "name": "response_type",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "code"
+              ]
+            },
+            "description": "The requested response type. This value should be set to 'code' to receive an authorization code in the API response."
+          },
+          {
+            "name": "client_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The Client ID of your SmartHQ app. This is generated during the [app creation](https://docs.smarthq.com/get-started/#2-creating-an-app) in the SmartHQ Developer Portal. It is used by the authorization server to identify which application the user is authorizing."
+          },
+          {
+            "name": "redirect_uri",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The URL where the authorization server redirects users after they complete the authorization process. The Redirect URL should be the same [callback URL](https://docs.smarthq.com/device-control-and-monitoring/authorization/#callback-url) registered during your app's setup in the SmartHQ Developer Portal."
+          },
+          {
+            "name": "access_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "offline",
+                "online"
+              ],
+              "default": "offline"
+            },
+            "description": "Indicates whether a [refresh token](https://docs.smarthq.com/device-control-and-monitoring/authorization/#oauth-20-tokens) should be returned as part of the /oauth2/token response. Use 'offline' (default) to receive a refresh token. This allows your app to obtain new access tokens without requiring the user to log in again — by exchanging the refresh token for a new access token using /oauth2/token. Your app must make this exchange explicitly. Use 'online' to not receive a refresh token - when the access token expires, the user must reauthorize through this endpoint again. See our OAuth 2.0 [token documentation](https://docs.smarthq.com/device-control-and-monitoring/authorization/#oauth-20-tokens) for more details."
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "If a value is passed in the request, the same value will be returned as a URL parameter in the response callback after the user completes the authorization process."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Returns HTML of the SmartHQ registration screen, allowing a user to create a SmartHQ account."
+          }
+        }
+      }
+    }
+  }
+}

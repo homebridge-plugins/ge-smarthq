@@ -78,8 +78,101 @@ const PING_INTERVAL = 60000 // 60 seconds
  * - Real-time updates via WebSocket
  * - Command execution
  * - Alert and presence tracking
+ *
+ * See:
+ *   - Digital Twin API: https://developer.smarthq.com/apis/digital-twin
+ *   - Event Stream API: https://developer.smarthq.com/apis/event-stream
+ *   - Identity API: https://developer.smarthq.com/apis/identity-and-access-management
  */
 export class SmartHQClient extends EventEmitter {
+  // --- High-level wrappers for registration/logout/policy/events ---
+
+  /**
+   * Register a new user (delegates to SmartHQAuth).
+   * @param registrationData - Registration fields (email, password, etc.)
+   * @returns Registration response
+   * @throws Error if SmartHQAuth.registerUser is not available
+   * See: https://docs.smarthq.com/device-control-and-monitoring/authorization/#registration-flow
+   */
+  async registerUser(registrationData: Record<string, any>): Promise<any> {
+    // Assume this.auth is an instance of SmartHQAuth
+    if (typeof (this as any).auth?.registerUser === 'function') {
+      return await (this as any).auth.registerUser(registrationData)
+    }
+    throw new Error('SmartHQAuth.registerUser not available')
+  }
+
+  /**
+   * Logout the current user (delegates to SmartHQAuth).
+   * @param state - Optional state parameter
+   * @throws Error if SmartHQAuth.logout is not available
+   * See: https://docs.smarthq.com/device-control-and-monitoring/authorization/#app-logout-use-case
+   */
+  async logout(state?: string): Promise<void> {
+    if (typeof (this as any).auth?.logout === 'function') {
+      return await (this as any).auth.logout(state)
+    }
+    throw new Error('SmartHQAuth.logout not available')
+  }
+
+  /**
+   * List device policies/permissions (delegates to SmartHQDevice).
+   * @param deviceId - Device identifier
+   * @returns Device policies
+   * @throws Error if SmartHQDevice.listDevicePolicies is not available
+   * See: https://developer.smarthq.com/apis/digital-twin#operation/listDevicePolicies
+   */
+  async listDevicePolicies(deviceId: string): Promise<any> {
+    if (typeof (this as any).device?.listDevicePolicies === 'function') {
+      return await (this as any).device.listDevicePolicies(deviceId)
+    }
+    throw new Error('SmartHQDevice.listDevicePolicies not available')
+  }
+
+  /**
+   * Subscribe to event types or device events (delegates to SmartHQEvents).
+   * @param eventTypes - Array of event type strings
+   * @param deviceIds - Optional array of device IDs
+   * @throws Error if SmartHQEvents.subscribeToEvents is not available
+   * See: https://developer.smarthq.com/apis/event-stream
+   */
+  subscribeToEvents(eventTypes: string[], deviceIds?: string[]): void {
+    if (typeof (this as any).events?.subscribeToEvents === 'function') {
+      (this as any).events.subscribeToEvents(eventTypes, deviceIds)
+    } else {
+      throw new TypeError('SmartHQEvents.subscribeToEvents not available')
+    }
+  }
+
+  /**
+   * Unsubscribe from event types or device events (delegates to SmartHQEvents).
+   * @param eventTypes - Array of event type strings
+   * @param deviceIds - Optional array of device IDs
+   * @throws Error if SmartHQEvents.unsubscribeFromEvents is not available
+   * See: https://developer.smarthq.com/apis/event-stream
+   */
+  unsubscribeFromEvents(eventTypes: string[], deviceIds?: string[]): void {
+    if (typeof (this as any).events?.unsubscribeFromEvents === 'function') {
+      (this as any).events.unsubscribeFromEvents(eventTypes, deviceIds)
+    } else {
+      throw new TypeError('SmartHQEvents.unsubscribeFromEvents not available')
+    }
+  }
+
+  /**
+   * Acknowledge receipt of an event (delegates to SmartHQEvents).
+   * @param eventId - Event identifier
+   * @throws Error if SmartHQEvents.acknowledgeEvent is not available
+   * See: https://developer.smarthq.com/apis/event-stream
+   */
+  acknowledgeEvent(eventId: string): void {
+    if (typeof (this as any).events?.acknowledgeEvent === 'function') {
+      (this as any).events.acknowledgeEvent(eventId)
+    } else {
+      throw new TypeError('SmartHQEvents.acknowledgeEvent not available')
+    }
+  }
+
   private config: SmartHQConfig
   public httpClient: AxiosInstance
   public websocket: WebSocket | null = null
@@ -950,7 +1043,7 @@ export class SmartHQClient extends EventEmitter {
    * Get all cached devices
    */
   getCachedDevices(): Device[] {
-    return Array.from(this.devices.values())
+    return [...this.devices.values()]
   }
 
   /**

@@ -1,0 +1,772 @@
+openapi: 3.0.3
+info:
+  title: GE SmartHQ API
+  version: 1.0.0
+  description: |
+    OpenAPI spec for the GE SmartHQ Digital Twin API v2, as implemented in this TypeScript client.
+    
+    - OAuth2 authentication (client credentials, refresh)
+    - Device, gateway, tag, favorite, alert, schema, and pubsub endpoints
+    - See https://developer.smarthq.com/apis for full API docs
+    
+    **All endpoints and schemas are documented with summaries and property descriptions.**
+servers:
+  - url: https://client.mysmarthq.com/v2
+  - url: https://accounts.brillion.geappliances.com
+components:
+  securitySchemes:
+    OAuth2:
+      type: oauth2
+      flows:
+        authorizationCode:
+          authorizationUrl: https://accounts.brillion.geappliances.com/oauth2/authorize
+          tokenUrl: https://accounts.brillion.geappliances.com/oauth2/token
+          scopes: {}
+security:
+  - OAuth2: []
+paths:
+  /device:
+    get:
+      summary: List all devices
+      description: Retrieve a list of all devices associated with the authenticated user.
+      operationId: listDevices
+      security:
+        - OAuth2: []
+      responses:
+        '200':
+          description: Array of devices
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  devices:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Device'
+  /device/{deviceId}:
+    get:
+      summary: Get device details
+      description: Retrieve details for a specific device by its ID.
+      operationId: getDevice
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+      security:
+        - OAuth2: []
+      responses:
+        '200':
+          description: Device details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Device'
+    delete:
+      summary: Delete device
+      description: Remove a device from the user's account by device ID.
+      operationId: deleteDevice
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+      security:
+        - OAuth2: []
+      responses:
+        '204':
+          description: Device deleted
+  /device/{deviceId}/alert:
+    get:
+      summary: Get device alerts
+      description: Retrieve all alerts for a specific device.
+      operationId: getDeviceAlerts
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+      security:
+        - OAuth2: []
+      responses:
+        '200':
+          description: Device alerts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AlertItem'
+  /device/{deviceId}/setting:
+    get:
+      summary: Get device settings
+      description: Retrieve all settings for a specific device.
+      operationId: getDeviceSettings
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+      security:
+        - OAuth2: []
+      responses:
+        '200':
+          description: Device settings
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  settings:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DeviceSetting'
+  /device/{deviceId}/setting/{ruleId}:
+    put:
+      summary: Update device setting
+      description: Update a specific setting for a device by rule ID.
+      operationId: updateDeviceSetting
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: ruleId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      security:
+        - OAuth2: []
+      responses:
+        '200':
+          description: Updated setting
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceSetting'
+
+  /gateway:
+    get:
+      summary: List all gateways
+      description: Retrieve a list of all gateways associated with the authenticated user.
+      operationId: listGateways
+      security:
+        - OAuth2: []
+      responses:
+        '200':
+          description: Array of gateways
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  gateways:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Gateway'
+    post:
+      summary: Add a new gateway
+      description: Add a new gateway to the user's account.
+      operationId: addGateway
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Gateway'
+      security:
+        - OAuth2: []
+      responses:
+        '201':
+          description: Gateway added
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Gateway'
+  /gateway/{gatewayId}:
+    delete:
+      summary: Delete gateway
+      description: Remove a gateway from the user's account by gateway ID.
+      operationId: deleteGateway
+      parameters:
+        - name: gatewayId
+          in: path
+          required: true
+          schema:
+            type: string
+      security:
+        - OAuth2: []
+      responses:
+        '204':
+          description: Gateway deleted
+  /gateway/{gatewayId}/tag:
+    get:
+      summary: Get gateway tags
+      description: Retrieve all tags for a specific gateway.
+      operationId: getGatewayTags
+      parameters:
+        - name: gatewayId
+          in: path
+          required: true
+          schema:
+            type: string
+      security:
+        - OAuth2: []
+      responses:
+        '200':
+          description: Gateway tags
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tags:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DeviceTag'
+    post:
+      summary: Set gateway tags
+      description: Set or update tags for a specific gateway.
+      operationId: setGatewayTags
+      parameters:
+        - name: gatewayId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                tags:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/DeviceTag'
+      security:
+        - OAuth2: []
+      responses:
+        '200':
+          description: Tags updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tags:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DeviceTag'
+    delete:
+      summary: Delete gateway tags
+      description: Remove tags from a specific gateway.
+      operationId: deleteGatewayTags
+      parameters:
+        - name: gatewayId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                tagNames:
+                  type: array
+                  items:
+                    type: string
+      security:
+        - OAuth2: []
+      responses:
+        '204':
+          description: Tags deleted
+
+  /favorite:
+    get:
+      summary: List all favorites
+      description: Retrieve a list of all favorites for the authenticated user.
+      operationId: listFavorites
+      security:
+        - OAuth2: []
+      responses:
+        '200':
+          description: Array of favorites
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  favorites:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Favorite'
+    post:
+      summary: Add a new favorite
+      description: Add a new favorite for the user.
+      operationId: addFavorite
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Favorite'
+      security:
+        - OAuth2: []
+      responses:
+        '201':
+          description: Favorite added
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Favorite'
+  /favorite/{favoriteId}:
+    put:
+      summary: Update favorite
+      description: Update an existing favorite by favorite ID.
+      operationId: updateFavorite
+      parameters:
+        - name: favoriteId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Favorite'
+      security:
+        - OAuth2: []
+      responses:
+        '200':
+          description: Favorite updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Favorite'
+    delete:
+      summary: Delete favorite
+      description: Remove a favorite by favorite ID.
+      operationId: deleteFavorite
+      parameters:
+        - name: favoriteId
+          in: path
+          required: true
+          schema:
+            type: string
+      security:
+        - OAuth2: []
+      responses:
+        '204':
+          description: Favorite deleted
+
+  /device/{deviceId}/tag:
+    get:
+      summary: Get device tags
+      description: Retrieve all tags for a specific device.
+      operationId: getDeviceTags
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+      security:
+        - OAuth2: []
+      responses:
+        '200':
+          description: Device tags
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tags:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DeviceTag'
+  /device/{deviceId}/tag/{tagName}:
+    post:
+      summary: Set device tag
+      description: Set or update a tag for a specific device.
+      operationId: setDeviceTag
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: tagName
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                tagValue:
+                  type: string
+      security:
+        - OAuth2: []
+      responses:
+        '200':
+          description: Tag updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceTag'
+    delete:
+      summary: Delete device tag
+      description: Remove a tag from a specific device.
+      operationId: deleteDeviceTag
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: tagName
+          in: path
+          required: true
+          schema:
+            type: string
+      security:
+        - OAuth2: []
+      responses:
+        '204':
+          description: Tag deleted
+
+  /alert/recent:
+    get:
+      summary: Get recent alerts
+      description: Retrieve a list of recent alerts for the authenticated user.
+      operationId: getRecentAlerts
+      security:
+        - OAuth2: []
+      responses:
+        '200':
+          description: Recent alerts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AlertItem'
+
+  /schema:
+    get:
+      summary: List all schemas
+      description: Retrieve a list of all available schemas.
+      operationId: listSchemas
+      security:
+        - OAuth2: []
+      responses:
+        '200':
+          description: Array of schemas
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  schemas:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SchemaItem'
+  /schema/{schemaName}:
+    get:
+      summary: Get schema by name
+      description: Retrieve a schema by its name.
+      operationId: getSchema
+      parameters:
+        - name: schemaName
+          in: path
+          required: true
+          schema:
+            type: string
+      security:
+        - OAuth2: []
+      responses:
+        '200':
+          description: Schema details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SchemaItem'
+    post:
+      summary: Test schema
+      description: Test a schema with a provided payload.
+      operationId: testSchema
+      parameters:
+        - name: schemaName
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      security:
+        - OAuth2: []
+      responses:
+        '200':
+          description: Test result
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /pubsub:
+    get:
+      summary: Get user pubsub config
+      description: Retrieve the pubsub configuration for the authenticated user.
+      operationId: getUserPubsubConfig
+      security:
+        - OAuth2: []
+      responses:
+        '200':
+          description: User pubsub config
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PubsubConfig'
+    post:
+      summary: Set user pubsub config
+      description: Set or update the pubsub configuration for the user.
+      operationId: setUserPubsubConfig
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PubsubConfig'
+      security:
+        - OAuth2: []
+      responses:
+        '200':
+          description: Updated config
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PubsubConfig'
+    delete:
+      summary: Delete user pubsub config
+      description: Remove the pubsub configuration for the user.
+      operationId: deleteUserPubsubConfig
+      security:
+        - OAuth2: []
+      responses:
+        '204':
+          description: Pubsub config deleted
+
+  /device/{deviceId}/pubsub:
+    get:
+      summary: Get device pubsub config
+      description: Retrieve the pubsub configuration for a specific device.
+      operationId: getDevicePubsubConfig
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+      security:
+        - OAuth2: []
+      responses:
+        '200':
+          description: Device pubsub config
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PubsubConfig'
+    post:
+      summary: Set device pubsub config
+      description: Set or update the pubsub configuration for a specific device.
+      operationId: setDevicePubsubConfig
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PubsubConfig'
+      security:
+        - OAuth2: []
+      responses:
+        '200':
+          description: Updated config
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PubsubConfig'
+    delete:
+      summary: Delete device pubsub config
+      description: Remove the pubsub configuration for a specific device.
+      operationId: deleteDevicePubsubConfig
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+      security:
+        - OAuth2: []
+      responses:
+        '204':
+          description: Pubsub config deleted
+components:
+  schemas:
+    Device:
+      type: object
+      description: A SmartHQ device (appliance, etc).
+      properties:
+        id:
+          type: string
+          description: Unique device identifier
+        name:
+          type: string
+          description: Device name
+        type:
+          type: string
+          description: Device type (e.g., washer, dryer)
+        status:
+          type: string
+          description: Device status (online/offline)
+    AlertItem:
+      type: object
+      description: An alert for a device or user.
+      properties:
+        id:
+          type: string
+          description: Unique alert identifier
+        type:
+          type: string
+          description: Alert type
+        message:
+          type: string
+          description: Alert message
+        timestamp:
+          type: string
+          format: date-time
+          description: Time the alert was generated
+    DeviceSetting:
+      type: object
+      description: A configurable setting for a device.
+      properties:
+        id:
+          type: string
+          description: Unique setting identifier
+        name:
+          type: string
+          description: Setting name
+        value:
+          type: string
+          description: Setting value
+
+    Gateway:
+      type: object
+      description: A SmartHQ gateway device.
+      properties:
+        id:
+          type: string
+          description: Unique gateway identifier
+        name:
+          type: string
+          description: Gateway name
+        status:
+          type: string
+          description: Gateway status
+
+    DeviceTag:
+      type: object
+      description: A tag assigned to a device or gateway.
+      properties:
+        name:
+          type: string
+          description: Tag name
+        value:
+          type: string
+          description: Tag value
+
+    Favorite:
+      type: object
+      description: A user-defined favorite configuration.
+      properties:
+        id:
+          type: string
+          description: Unique favorite identifier
+        name:
+          type: string
+          description: Favorite name
+        deviceId:
+          type: string
+          description: Associated device ID
+        data:
+          type: object
+          description: Favorite configuration data
+
+    SchemaItem:
+      type: object
+      description: A schema definition for a device or service.
+      properties:
+        name:
+          type: string
+          description: Schema name
+        version:
+          type: string
+          description: Schema version
+        definition:
+          type: object
+          description: Schema definition object
+
+    PubsubConfig:
+      type: object
+      description: Pubsub (event streaming) configuration.
+      properties:
+        enabled:
+          type: boolean
+          description: Whether pubsub is enabled
+        endpoint:
+          type: string
+          description: Pubsub endpoint URL
+        topics:
+          type: array
+          description: List of subscribed topics
+          items:
+            type: string

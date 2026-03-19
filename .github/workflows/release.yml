@@ -3,8 +3,8 @@ name: Unified Release
 on:
   push:
     branches:
-      #- "alpha-*"
-      #- "beta-*"
+      # - "alpha-*"
+      # - "beta-*"
       - latest
   workflow_dispatch:
 
@@ -75,9 +75,9 @@ jobs:
     needs: [determine-release-type, update-version, publish-release, sync-github-release]
     uses: homebridge/.github/.github/workflows/discord-webhooks.yml@latest
     with:
-      title: "August Release"
+      title: August Release
       description: |
         Version `v${{ needs.update-version.outputs.version }}`
-      url: "https://github.com/homebridge-plugins/homebridge-august/releases/tag/v${{ needs.update-version.outputs.version }}"
+      url: 'https://github.com/homebridge-plugins/homebridge-august/releases/tag/v${{ needs.update-version.outputs.version }}'
     secrets:
       DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL_LATEST }}

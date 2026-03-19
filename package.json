@@ -1,13 +1,26 @@
 {
   "name": "ge-smarthq",
-  "version": "1.0.1",
   "type": "module",
+  "version": "1.0.1",
   "description": "GE SmartHQ appliances module",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
   "publishConfig": {
     "access": "public"
   },
+  "author": "Homebridge Team",
+  "license": "MIT",
+  "homepage": "https://github.com/homebridge-plugins/ge-smarthq#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/homebridge-plugins/ge-smarthq.git"
+  },
+  "bugs": {
+    "url": "https://github.com/homebridge-plugins/ge-smarthq/issues"
+  },
+  "keywords": [
+    "ge",
+    "smarthq",
+    "appliances"
+  ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -15,9 +28,14 @@
       "require": "./dist/index.js"
     }
   },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "files": [
     "dist"
   ],
+  "engines": {
+    "node": "^20 || ^22 || ^24"
+  },
   "scripts": {
     "check": "npm install && npm outdated",
     "lint": "eslint src/**/*.ts",
@@ -31,46 +49,31 @@
     "test:watch": "vitest watch",
     "test-coverage": "npm run test -- --coverage",
     "docs": "typedoc",
-    "docs:lint": "typedoc --emit none --treatWarningsAsErrors"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/homebridge-plugins/ge-smarthq.git"
-  },
-  "keywords": [
-    "ge",
-    "smarthq",
-    "appliances"
-  ],
-  "author": "Homebridge Team",
-  "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/homebridge-plugins/ge-smarthq/issues"
-  },
-  "homepage": "https://github.com/homebridge-plugins/ge-smarthq#readme",
-  "engines": {
-    "node": "^20 || ^22 || ^24"
+    "docs:lint": "typedoc --emit none --treatWarningsAsErrors",
+    "postdocs": "node ./scripts/posttypedoc-swagger-link.cjs"
   },
   "dependencies": {
-    "axios": "^1.11.0",
+    "axios": "^1.13.6",
     "express": "^5.2.1",
-    "ws": "^8.19.0"
+    "node-fetch": "^3.3.2",
+    "ws": "^8.19.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@antfu/eslint-config": "^7.0.1",
-    "@types/node": "^25.2.3",
+    "@antfu/eslint-config": "^7.7.3",
+    "@types/node": "^25.5.0",
     "@types/ws": "^8.18.1",
-    "@typescript-eslint/eslint-plugin": "^8.0.0",
-    "@typescript-eslint/parser": "^8.0.0",
-    "@vitest/coverage-v8": "^4.0.17",
-    "eslint": "^9.34.0",
-    "eslint-plugin-format": "^1.3.1",
-    "eslint-plugin-import": "^2.32.0",
+    "@typescript-eslint/eslint-plugin": "^8.57.1",
+    "@typescript-eslint/parser": "^8.57.1",
+    "@vitest/coverage-v8": "^4.1.0",
+    "eslint": "^10.0.3",
+    "eslint-plugin-format": "^2.0.1",
+    "eslint-plugin-jsdoc": "^62.8.0",
     "homebridge": "^1.11.1",
     "nodemon": "^3.1.10",
     "tsc-alias": "^1.8.16",
     "typedoc": "^0.28.16",
     "typescript": "^5.9.2",
-    "vitest": "^4.0.18"
+    "vitest": "^4.1.0"
   }
 }
