@@ -336,7 +336,7 @@ export class SmartHQClient extends EventEmitter {
   /**
    * Get list of devices with optional filtering and pagination
    */
-  async getDevices(): Promise<DeviceListResponse> {
+  async getDevices(retryOn401 = true): Promise<DeviceListResponse> {
     try {
       const response = await this.httpClient.get<DeviceListResponse>('/v2/device', { headers: await this.httpHeaders() },
       )
@@ -346,9 +346,13 @@ export class SmartHQClient extends EventEmitter {
       }
       return response.data
     } catch (error: any) {
-      if (error.response?.status === 401) {
+      // ⚠️ Retry a 401 ONCE. This used to refresh and then call itself with no
+      // attempt cap, so a 401 that refreshing cannot fix - a revoked token, or
+      // credentials the token endpoint rejects outright - became an unbounded
+      // loop of requests against the API rather than one failure.
+      if (error.response?.status === 401 && retryOn401) {
         await this.refreshAccessToken()
-        return await this.getDevices()
+        return await this.getDevices(false)
       } else {
         throw this.handleApiError('Failed to get devices', error)
       }
@@ -358,15 +362,16 @@ export class SmartHQClient extends EventEmitter {
   /**
    * Get a single device by deviceId
    */
-  async getDevice(deviceId: string): Promise<Device> {
+  async getDevice(deviceId: string, retryOn401 = true): Promise<Device> {
     try {
       const response = await this.httpClient.get<Device>(`/v2/device/${deviceId}`, { headers: await this.httpHeaders() })
       this.devices.set(deviceId, response.data)
       return response.data
     } catch (error: any) {
-      if (error.response?.status === 401) {
+      // Retry once only - see the note in getDevices().
+      if (error.response?.status === 401 && retryOn401) {
         await this.refreshAccessToken()
-        return await this.getDevice(deviceId)
+        return await this.getDevice(deviceId, false)
       } else {
         throw this.handleApiError(`Failed to get device ${deviceId}`, error)
       }
