@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file. This projec
 ### Changed
 
 - feat: log the command body before sending it, to help develop new appliance support (#21) (@ceb400)
+- chore(deps): dependency updates
 
 ## v1.1.1 (2026-08-22)
 
