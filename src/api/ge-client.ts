@@ -69,6 +69,11 @@ const API_BASE_URL = 'https://client.mysmarthq.com'
 const LOGIN_URL = 'https://accounts.brillion.geappliances.com'
 const TOKEN_STORE = 'smarthq.tokens.json'
 const PING_INTERVAL = 60000 // 60 seconds
+// How long to wait for a pong before treating the socket as dead. This was
+// 10 seconds, which SmartHQ regularly failed to beat, so healthy connections
+// were being closed and reconnected all day (#19). It has to stay comfortably
+// under PING_INTERVAL, or a late pong would race the next ping.
+const PONG_TIMEOUT = 30000 // 30 seconds
 
 /**
  * GE SmartHQ API Client
@@ -1011,7 +1016,7 @@ export class SmartHQClient extends EventEmitter {
         this.pongTimeout = setTimeout(() => {
           this.debug('Pong timeout - reconnecting')
           this.websocket?.close()
-        }, 10000)
+        }, PONG_TIMEOUT)
       }
     }, PING_INTERVAL)
   }
