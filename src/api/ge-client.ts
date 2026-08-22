@@ -1,14 +1,5 @@
-import { EventEmitter } from 'node:events'
-import WebSocket from 'ws'
 import type { AxiosInstance, AxiosResponse } from 'axios'
-import axios from 'axios'
-import chalk from 'chalk'
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
-import express from 'express'
-import path from 'node:path'
-import process from 'node:process'
 import type { Server } from 'node:http'
-import { parse, stringify } from 'node:querystring'
 
 import type {
   AlertCountResponse,
@@ -63,6 +54,17 @@ import type {
   UpdateFavoriteResponse,
   WebsocketEndpoint,
 } from '../types/index.js'
+
+import { EventEmitter } from 'node:events'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import path from 'node:path'
+import process from 'node:process'
+import { parse, stringify } from 'node:querystring'
+
+import axios from 'axios'
+import chalk from 'chalk'
+import express from 'express'
+import WebSocket from 'ws'
 
 // SmartHQ API v2 Constants
 const API_BASE_URL = 'https://client.mysmarthq.com'

@@ -25,9 +25,9 @@ assignees: ''
 Show the logs here.
 ```
 
-**Rainbrid Config:**
+**GE SmartHQ Config:**
 
-```json
+```text
 Show your GE SmartHQ config.json here
 ```
 
@@ -36,9 +36,8 @@ Show your GE SmartHQ config.json here
 
 **Environment:**
 
-* **Node.js Version**: <!-- node -v -->
-* **GE SmartHQ Version**:
-* **Operating System**: Raspbian / Ubuntu / Debian / Windows / macOS / Docker
-
+- **Node.js Version**: <!-- node -v -->
+- **GE SmartHQ Version**:
+- **Operating System**: Raspbian / Ubuntu / Debian / Windows / macOS / Docker
 
 <!-- Click the "Preview" tab before you submit to ensure the formatting is correct. -->

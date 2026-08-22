@@ -1,28 +1,27 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
+All notable changes to this project will be documented in this file. This project uses [Semantic Versioning](https://semver.org/).
 
-## [1.0.1](https://github.com/homebridge-plugins/ge-smarthq/releases/tag/v1.0.1) (2026-03-17)
+## v1.1.1 (Pending Release)
 
-## What's Changed
-* No notable changes
+### Changed
 
-**Full Changelog**: https://github.com/homebridge-plugins/ge-smarthq/compare/...v1.0.1
+- chore: use the same lint setup as the other plugins, and tidy the changelog to match
 
-## [1.0.1](https://github.com/homebridge-plugins/ge-smarthq/releases/tag/v1.0.1) (2026-03-14)
+## v1.1.0 (2026-08-22)
 
-## What's Changed
-* No notable changes
+### Changed
 
-**Full Changelog**: https://github.com/homebridge-plugins/ge-smarthq/compare/...v1.0.1
+- ci: release on a github release, as the plugins do, and build every push and pr
+- chore(deps): dependency updates
+- feat(types): report outcome and success from sendCommand (#18) (@ceb400)
+- fix: declare chalk as a dependency, and retry a 401 once instead of unbounded (#20) (@mrosenbergtech)
+- fix(websocket): wait 30 seconds for a pong, so a healthy connection is not closed (#19)
 
-## 1.0.1 (2026-03-14)
+## v1.0.1 (2026-03-17)
 
-## 1.0.1 (2026-03-14)
+### Changed
 
-## [1.0.1](https://github.com/homebridge-plugins/ge-smarthq/releases/tag/v1.0.1) (2026-03-14)
-
-## What's Changed
 - OAuth2 initial authentication process for Digital Twin API
 - Client Id and Client secret passed via config.schema.json
 - Access, refresh tokens and expire changed to static vars
@@ -31,12 +30,10 @@ All notable changes to this project will be documented in this file.
 - Handling of the http headers (authorization)
 - Add requirement for initial setup of SmartHQ account in order to use Digital Twin API
 
+## v1.0.0 (2026-02-12)
 
-**Full Changelog**: https://github.com/homebridge-plugins/ge-smarthq/compare/...v1.0.1
+### Changed
 
-## [1.0.0](https://github.com/homebridge-plugins/ge-smarthq/releases/tag/v1.0.0) (2026-02-11)
-
-## What's Changed
 - Initial release of GE SmartHQ API client library
 - Complete TypeScript support with full type definitions
 - OAuth2 authentication with automatic token refresh
@@ -45,12 +42,7 @@ All notable changes to this project will be documented in this file.
 - Command execution
 - Alert monitoring
 - Device presence tracking
-- WebSocket real-time event streaming
-  - Service updates (pubsub#service)
-  - Device lifecycle events (pubsub#device)
-  - Device alerts (pubsub#alert)
-  - Device presence (pubsub#presence)
-  - Command outcomes (pubsub#command)
+- WebSocket real-time event streaming, covering service updates, device lifecycle events, alerts, presence and command outcomes
 - Event-driven API using EventEmitter
 - Automatic reconnection with exponential backoff
 - Device caching for performance
@@ -58,6 +50,3 @@ All notable changes to this project will be documented in this file.
 - Support for both US and EU regions
 - Full API documentation and examples
 - Homebridge integration guide
-
-**Full Changelog**: https://github.com/homebridge-plugins/ge-smarthq/compare/...v1.0.0
-

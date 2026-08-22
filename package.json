@@ -1,13 +1,26 @@
 {
   "name": "ge-smarthq",
-  "version": "1.1.0",
   "type": "module",
+  "version": "1.1.0",
   "description": "GE SmartHQ appliances module",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
   "publishConfig": {
     "access": "public"
   },
+  "author": "Homebridge Team",
+  "license": "MIT",
+  "homepage": "https://github.com/homebridge-plugins/ge-smarthq#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/homebridge-plugins/ge-smarthq.git"
+  },
+  "bugs": {
+    "url": "https://github.com/homebridge-plugins/ge-smarthq/issues"
+  },
+  "keywords": [
+    "ge",
+    "smarthq",
+    "appliances"
+  ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -15,13 +28,18 @@
       "require": "./dist/index.js"
     }
   },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "files": [
     "dist"
   ],
+  "engines": {
+    "node": "^20 || ^22 || ^24"
+  },
   "scripts": {
     "check": "npm install && npm outdated",
-    "lint": "eslint src/**/*.ts",
-    "lint:fix": "eslint src/**/*.ts --fix",
+    "lint": "eslint . --max-warnings=0",
+    "lint:fix": "npm run lint -- --fix",
     "build": "npm run clean && tsc && tsc-alias",
     "watch": "tsc -w",
     "prepublishOnly": "npm run lint && npm run build && npm run docs && npm run docs:lint",
@@ -32,24 +50,6 @@
     "test-coverage": "npm run test -- --coverage",
     "docs": "typedoc",
     "docs:lint": "typedoc --emit none --treatWarningsAsErrors"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/homebridge-plugins/ge-smarthq.git"
-  },
-  "keywords": [
-    "ge",
-    "smarthq",
-    "appliances"
-  ],
-  "author": "Homebridge Team",
-  "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/homebridge-plugins/ge-smarthq/issues"
-  },
-  "homepage": "https://github.com/homebridge-plugins/ge-smarthq#readme",
-  "engines": {
-    "node": "^20 || ^22 || ^24"
   },
   "dependencies": {
     "axios": "^1.19.0",
