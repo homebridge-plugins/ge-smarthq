@@ -136,31 +136,35 @@ describe('smartHQClient', () => {
         redirectUri: 'http://localhost:8888/callback',
         debug: true,
       })
-      const logSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      // Stub the transport rather than let this reach the network: a real request would fail
+      // authentication and the client emits 'error' for that, which surfaces as an unhandled rejection.
+      vi.spyOn(debugClient, 'httpHeaders').mockResolvedValue({ Authorization: 'Bearer test' })
+      vi.spyOn(debugClient.httpClient, 'post').mockResolvedValue({ data: { success: true } })
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
       const body = { kind: 'appliance#command', body: { erd: '0x5200', value: '01015E00' } }
 
-      // The request is expected to fail - there is no token and no server. What matters is that the body
-      // reached the log before the attempt, which is the whole point of the request in #21.
-      await debugClient.sendCommand(body as never).catch(() => {})
+      await debugClient.sendCommand(body as never)
 
-      const printed = logSpy.mock.calls.map(call => call.join(' ')).join('\n')
+      const printed = warnSpy.mock.calls.map(call => call.join(' ')).join('\n')
       expect(printed).toContain('Sending command:')
       expect(printed).toContain('0x5200')
       expect(printed).toContain('01015E00')
 
-      logSpy.mockRestore()
+      vi.restoreAllMocks()
       await debugClient.disconnect().catch(() => {})
     })
 
     it('should not print the command body when debug is off', async () => {
-      const logSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      vi.spyOn(client, 'httpHeaders').mockResolvedValue({ Authorization: 'Bearer test' })
+      vi.spyOn(client.httpClient, 'post').mockResolvedValue({ data: { success: true } })
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
-      await client.sendCommand({ kind: 'appliance#command' } as never).catch(() => {})
+      await client.sendCommand({ kind: 'appliance#command' } as never)
 
-      const printed = logSpy.mock.calls.map(call => call.join(' ')).join('\n')
+      const printed = warnSpy.mock.calls.map(call => call.join(' ')).join('\n')
       expect(printed).not.toContain('Sending command:')
 
-      logSpy.mockRestore()
+      vi.restoreAllMocks()
     })
   })
 
