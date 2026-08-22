@@ -465,6 +465,9 @@ export class SmartHQClient extends EventEmitter {
    */
   async sendCommand(request: SendCommandRequest): Promise<SendCommandSuccessResponse> {
     try {
+      // Getting the body right is the hard part of adding a new appliance, and the API's rejection does not
+      // say which field it disliked, so print what we are about to send (#21). Credentials are in the headers.
+      this.debug(`Sending command: ${JSON.stringify(request, null, 2)}`)
       const response = await this.httpClient.post<SendCommandSuccessResponse>(
         '/v2/command',
         request,
@@ -481,6 +484,7 @@ export class SmartHQClient extends EventEmitter {
    */
   async sendCommands(request: SendCommandsRequest): Promise<SendCommandsSuccessResponse> {
     try {
+      this.debug(`Sending commands: ${JSON.stringify(request, null, 2)}`)
       const response = await this.httpClient.post<SendCommandsSuccessResponse>(
         '/v2/commands',
         request,

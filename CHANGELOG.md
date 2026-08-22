@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. This project uses [Semantic Versioning](https://semver.org/).
 
+## v1.2.0 (Pending Release)
+
+### Changed
+
+- feat: log the command body before sending it, to help develop new appliance support (#21) (@ceb400)
+
 ## v1.1.1 (2026-08-22)
 
 ### Changed

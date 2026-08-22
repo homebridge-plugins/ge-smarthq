@@ -128,6 +128,40 @@ describe('smartHQClient', () => {
     it('should have sendCommands method', () => {
       expect(client).toHaveProperty('sendCommands')
     })
+
+    it('should print the command body it is about to send, when debug is on', async () => {
+      const debugClient = new SmartHQClient({
+        clientId: 'test-client-id',
+        clientSecret: 'test-client-secret',
+        redirectUri: 'http://localhost:8888/callback',
+        debug: true,
+      })
+      const logSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      const body = { kind: 'appliance#command', body: { erd: '0x5200', value: '01015E00' } }
+
+      // The request is expected to fail - there is no token and no server. What matters is that the body
+      // reached the log before the attempt, which is the whole point of the request in #21.
+      await debugClient.sendCommand(body as never).catch(() => {})
+
+      const printed = logSpy.mock.calls.map(call => call.join(' ')).join('\n')
+      expect(printed).toContain('Sending command:')
+      expect(printed).toContain('0x5200')
+      expect(printed).toContain('01015E00')
+
+      logSpy.mockRestore()
+      await debugClient.disconnect().catch(() => {})
+    })
+
+    it('should not print the command body when debug is off', async () => {
+      const logSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+      await client.sendCommand({ kind: 'appliance#command' } as never).catch(() => {})
+
+      const printed = logSpy.mock.calls.map(call => call.join(' ')).join('\n')
+      expect(printed).not.toContain('Sending command:')
+
+      logSpy.mockRestore()
+    })
   })
 
   describe('alert operations', () => {
