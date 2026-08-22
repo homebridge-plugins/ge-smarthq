@@ -225,6 +225,8 @@ export interface SendCommandRequest {
 export interface SendCommandSuccessResponse {
   correlationId: string
   timestamp: string
+  outcome: string
+  success: boolean
 }
 
 export interface SendCommandsRequest {
