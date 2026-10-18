@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. This project uses [Semantic Versioning](https://semver.org/).
 
+## v1.2.2 (Pending Release)
+
+### Changed
+
+- fix: support node 26 and drop end-of-life node 20, matching homebridge-smarthq
+
 ## v1.2.1 (2026-10-18)
 
 ### Changed
