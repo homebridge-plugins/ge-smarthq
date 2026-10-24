@@ -65,7 +65,9 @@ describe('a 401 that refreshing cannot fix', () => {
   it('still recovers when the refresh does produce a working token', async () => {
     const get = vi.spyOn(client.httpClient, 'get')
       .mockRejectedValueOnce(unauthorized())
-      .mockResolvedValueOnce({ data: { devices: [], total: 0 } } as any)
+      .mockResolvedValueOnce({
+        data: { devices: [], total: 0 },
+      } as any)
 
     await expect(client.getDevices()).resolves.toMatchObject({ total: 0 })
     expect(get).toHaveBeenCalledTimes(2)
@@ -73,7 +75,9 @@ describe('a 401 that refreshing cannot fix', () => {
 
   it('does not retry a failure that is not a 401', async () => {
     const get = vi.spyOn(client.httpClient, 'get').mockRejectedValue(
-      Object.assign(new Error('boom'), { response: { status: 500 } }),
+      Object.assign(new Error('boom'), {
+        response: { status: 500 },
+      }),
     )
 
     await expect(client.getDevices()).rejects.toBeDefined()
