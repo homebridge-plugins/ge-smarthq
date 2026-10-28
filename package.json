@@ -52,14 +52,14 @@
     "docs:lint": "typedoc --emit none --treatWarningsAsErrors"
   },
   "dependencies": {
-    "axios": "^1.20.0",
+    "axios": "^1.21.0",
     "chalk": "^6.0.1",
     "express": "^5.3.0",
     "ws": "^8.22.0"
   },
   "devDependencies": {
     "@antfu/eslint-config": "^10.0.0",
-    "@types/node": "^26.6.5",
+    "@types/node": "^26.6.6",
     "@types/ws": "^8.18.2",
     "@vitest/coverage-v8": "^5.0.5",
     "eslint-plugin-format": "^2.0.1",
