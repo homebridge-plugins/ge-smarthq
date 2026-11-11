@@ -139,9 +139,14 @@ describe('smartHQClient', () => {
       // Stub the transport rather than let this reach the network: a real request would fail
       // authentication and the client emits 'error' for that, which surfaces as an unhandled rejection.
       vi.spyOn(debugClient, 'httpHeaders').mockResolvedValue({ Authorization: 'Bearer test' })
-      vi.spyOn(debugClient.httpClient, 'post').mockResolvedValue({ data: { success: true } })
+      vi.spyOn(debugClient.httpClient, 'post').mockResolvedValue({
+        data: { success: true },
+      })
       const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-      const body = { kind: 'appliance#command', body: { erd: '0x5200', value: '01015E00' } }
+      const body = {
+        kind: 'appliance#command',
+        body: { erd: '0x5200', value: '01015E00' },
+      }
 
       await debugClient.sendCommand(body as never)
 
@@ -156,7 +161,9 @@ describe('smartHQClient', () => {
 
     it('should not print the command body when debug is off', async () => {
       vi.spyOn(client, 'httpHeaders').mockResolvedValue({ Authorization: 'Bearer test' })
-      vi.spyOn(client.httpClient, 'post').mockResolvedValue({ data: { success: true } })
+      vi.spyOn(client.httpClient, 'post').mockResolvedValue({
+        data: { success: true },
+      })
       const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
       await client.sendCommand({ kind: 'appliance#command' } as never)

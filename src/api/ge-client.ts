@@ -235,7 +235,9 @@ export class SmartHQClient extends EventEmitter {
       const response = await this.httpClient.post(
         `${LOGIN_URL}/oauth2/token`,
         stringify(requestBody),
-        { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
+        {
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        },
       )
 
       this.saveToken(response.data)
@@ -755,7 +757,9 @@ export class SmartHQClient extends EventEmitter {
    */
   async removeGateway(gatewayId: string, force: boolean = false): Promise<void> {
     try {
-      const params = force ? { force: 'true' } : {}
+      const params = force
+        ? { force: 'true' }
+        : {}
       await this.httpClient.delete(`/v2/gateway/${gatewayId}`, { params, headers: await this.httpHeaders() })
     } catch (error) {
       throw this.handleApiError(`Failed to remove gateway ${gatewayId}`, error)
