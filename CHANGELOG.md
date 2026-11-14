@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file. This projec
 ### Changed
 
 - ci: publish releases with node.js v26, the current lts
+- chore(deps): dependency updates
 
 ## v1.2.2 (2026-10-18)
 
